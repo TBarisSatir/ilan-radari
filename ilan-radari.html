@@ -159,8 +159,8 @@ select.set{border-color:var(--pink);background:var(--pink);color:var(--on-pink);
 .steps li.cur:not(.good):not(.end) .dot{background:var(--blue);border-color:var(--blue)}
 
 /* Sıvı arka plan: başlığın arkasında, imleci izleyen renk akışı */
-.ether{position:absolute;top:0;left:0;right:0;height:340px;z-index:0;pointer-events:none;overflow:hidden;-webkit-mask-image:linear-gradient(#000 40%,transparent);mask-image:linear-gradient(#000 40%,transparent)}
-.ether canvas{width:100%;height:100%;display:block;filter:blur(18px) saturate(1.25);opacity:.78;transform:scale(1.1)}
+.ether{position:absolute;top:0;left:0;right:0;height:min(100vh,760px);z-index:0;pointer-events:none;overflow:hidden;-webkit-mask-image:linear-gradient(#000 50%,transparent 95%);mask-image:linear-gradient(#000 50%,transparent 95%)}
+.ether canvas{width:100%;height:100%;display:block;opacity:.85}
 .wrap{position:relative;z-index:1}
 
 /* Elle başvuru ekleme */
@@ -932,51 +932,164 @@ $("m-save").addEventListener("click",async()=>{
 });
 
 /* ===================== Sıvı arka plan ===================== */
-/* Düşük çözünürlüklü bir akışkan ızgarası (hız + 3 renk kanalı); imleç hareketi akışı iter, boşta kendi kendine gezinir. */
-(()=>{try{
-  const host=$("ether"),cv=$("ether-c"),ctx=cv&&cv.getContext("2d");if(!ctx)return;
-  const W=96,H=40,N=W*H;cv.width=W;cv.height=H;
-  let u=new Float32Array(N),v=new Float32Array(N),u0=new Float32Array(N),v0=new Float32Array(N);
-  const dye=[0,1,2].map(()=>new Float32Array(N)),dye0=[0,1,2].map(()=>new Float32Array(N));
-  const p=new Float32Array(N),div=new Float32Array(N),img=ctx.createImageData(W,H);
-  const PAL=[[224,17,95],[183,156,255],[108,180,255]];
-  const sample=(f,x,y)=>{x=Math.min(W-1.001,Math.max(0,x));y=Math.min(H-1.001,Math.max(0,y));const x0=x|0,y0=y|0,fx=x-x0,fy=y-y0,i=x0+y0*W;
-    return (f[i]*(1-fx)+f[i+1]*fx)*(1-fy)+(f[i+W]*(1-fx)+f[i+W+1]*fx)*fy;};
-  const advect=(dst,src,uu,vv,k)=>{for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=x+y*W;dst[i]=sample(src,x-uu[i],y-vv[i])*k;}};
-  function project(){
-    for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const i=x+y*W;div[i]=-0.5*(u[i+1]-u[i-1]+v[i+W]-v[i-W]);p[i]=0;}
-    for(let k=0;k<10;k++)for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const i=x+y*W;p[i]=(div[i]+p[i-1]+p[i+1]+p[i-W]+p[i+W])*0.25;}
-    for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const i=x+y*W;u[i]-=0.5*(p[i+1]-p[i-1]);v[i]-=0.5*(p[i+W]-p[i-W]);}
+/* WebGL akışkan simülasyonu: yalnızca hız alanı tutulur, renk akışın hızından gelir. İmleç akışı iter; boşta kendi kendine gezinir. */
+(()=>{
+  const host=$("ether"),cv=$("ether-c");if(!host||!cv)return;
+  const off=()=>{host.hidden=true;};
+  try{
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches)return off();
+  const gl=cv.getContext("webgl2",{alpha:true,antialias:false,depth:false,stencil:false,powerPreference:"low-power"});
+  if(!gl||!(gl.getExtension("EXT_color_buffer_float")||gl.getExtension("EXT_color_buffer_half_float")))return off();
+  const small=matchMedia("(max-width: 991px)").matches;
+  const C={force:20,cursor:small?40:160,visc:30,itV:small?12:16,itP:8,dt:.014,res:small?.3:.4,autoSpeed:.5,autoGain:2.2,takeover:250,resume:500,ramp:500};
+  const PAL=[[224,17,95],[224,17,95],[255,72,136]].map(c=>c.map(x=>x/255));
+
+  const VS="attribute vec2 p;varying vec2 uv;void main(){uv=p*.5+.5;gl_Position=vec4(p,0.,1.);}";
+  const VS_FORCE="attribute vec2 p;uniform vec2 center,scale;varying vec2 uv;void main(){uv=p;gl_Position=vec4(p*scale+center,0.,1.);}";
+  const H="precision highp float;varying vec2 uv;";
+  const FS={
+    /* BFECC adveksiyon: ileri-geri izleyip hatayı düzeltir, akış daha az bulanır */
+    adv:H+`uniform sampler2D velocity;uniform float dt;uniform vec2 fboSize;
+void main(){vec2 r=max(fboSize.x,fboSize.y)/fboSize;
+vec2 a=uv-texture2D(velocity,uv).xy*dt*r;
+vec2 b=a+texture2D(velocity,a).xy*dt*r;
+vec2 c=uv-(b-uv)*.5;
+gl_FragColor=vec4(texture2D(velocity,c-texture2D(velocity,c).xy*dt*r).xy,0.,0.);}`,
+    force:H+`uniform vec2 force;
+void main(){float d=1.-min(length(uv),1.);gl_FragColor=vec4(force*d*d,0.,1.);}`,
+    visc:H+`uniform sampler2D velocity,velocity_new;uniform float v,dt;uniform vec2 px;
+void main(){vec2 o=texture2D(velocity,uv).xy;
+vec2 n=texture2D(velocity_new,uv+vec2(px.x*2.,0.)).xy+texture2D(velocity_new,uv-vec2(px.x*2.,0.)).xy
++texture2D(velocity_new,uv+vec2(0.,px.y*2.)).xy+texture2D(velocity_new,uv-vec2(0.,px.y*2.)).xy;
+gl_FragColor=vec4((4.*o+v*dt*n)/(4.*(1.+v*dt)),0.,0.);}`,
+    div:H+`uniform sampler2D velocity;uniform float dt;uniform vec2 px;
+void main(){float x0=texture2D(velocity,uv-vec2(px.x,0.)).x,x1=texture2D(velocity,uv+vec2(px.x,0.)).x;
+float y0=texture2D(velocity,uv-vec2(0.,px.y)).y,y1=texture2D(velocity,uv+vec2(0.,px.y)).y;
+gl_FragColor=vec4((x1-x0+y1-y0)*.5/dt);}`,
+    pois:H+`uniform sampler2D pressure,divergence;uniform vec2 px;
+void main(){float s=texture2D(pressure,uv+vec2(px.x*2.,0.)).r+texture2D(pressure,uv-vec2(px.x*2.,0.)).r
++texture2D(pressure,uv+vec2(0.,px.y*2.)).r+texture2D(pressure,uv-vec2(0.,px.y*2.)).r;
+gl_FragColor=vec4(s/4.-texture2D(divergence,uv).r);}`,
+    pres:H+`uniform sampler2D pressure,velocity;uniform float dt;uniform vec2 px;
+void main(){float p0=texture2D(pressure,uv+vec2(px.x,0.)).r,p1=texture2D(pressure,uv-vec2(px.x,0.)).r;
+float p2=texture2D(pressure,uv+vec2(0.,px.y)).r,p3=texture2D(pressure,uv-vec2(0.,px.y)).r;
+gl_FragColor=vec4(texture2D(velocity,uv).xy-vec2(p0-p1,p2-p3)*.5*dt,0.,1.);}`,
+    /* Çıktı: hız büyüklüğü hem rengi hem saydamlığı belirler (durgun yer tamamen saydam) */
+    out:H+`uniform sampler2D velocity;uniform vec3 c0,c1,c2;
+void main(){float l=clamp(length(texture2D(velocity,uv).xy),0.,1.);
+float t=clamp(l*3.-.5,0.,2.);vec3 c=t<1.?mix(c0,c1,t):mix(c1,c2,t-1.);
+gl_FragColor=vec4(c*l,l);}`
+  };
+  const prog=(vs,fs)=>{const p=gl.createProgram();
+    for(const [t,s] of [[gl.VERTEX_SHADER,vs],[gl.FRAGMENT_SHADER,fs]]){const sh=gl.createShader(t);gl.shaderSource(sh,s);gl.compileShader(sh);gl.attachShader(p,sh);}
+    gl.bindAttribLocation(p,0,"p");gl.linkProgram(p);
+    if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw new Error("shader");
+    p.u={};return p;};
+  const P={};for(const k in FS)P[k]=prog(k==="force"?VS_FORCE:VS,FS[k]);
+  gl.bindBuffer(gl.ARRAY_BUFFER,gl.createBuffer());
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
+  gl.clearColor(0,0,0,0);
+
+  let fw=0,fh=0;const F={},NAMES=["vel0","vel1","visc0","visc1","div","pres0","pres1"];
+  const mk=()=>{const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA16F,fw,fh,0,gl.RGBA,gl.HALF_FLOAT,null);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    const fb=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,tex,0);
+    if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw new Error("fbo");
+    gl.clear(gl.COLOR_BUFFER_BIT);return {tex,fb};};
+  function resize(){
+    const r=host.getBoundingClientRect(),w=Math.max(1,Math.floor(r.width)),h=Math.max(1,Math.floor(r.height));
+    const d=Math.min(window.devicePixelRatio||1,1.5),cw=Math.round(w*d),ch=Math.round(h*d);
+    if(cv.width!==cw||cv.height!==ch){cv.width=cw;cv.height=ch;}
+    const nw=Math.max(2,Math.round(C.res*w)),nh=Math.max(2,Math.round(C.res*h));
+    if(nw===fw&&nh===fh)return;
+    for(const k in F){gl.deleteTexture(F[k].tex);gl.deleteFramebuffer(F[k].fb);}
+    fw=nw;fh=nh;for(const k of NAMES)F[k]=mk();
   }
-  const cl=a=>Math.max(-5,Math.min(5,a));
-  function splat(x,y,dx,dy,c,r){const r2=r*r;dx=cl(dx);dy=cl(dy);
-    for(let j=Math.max(1,(y-r)|0);j<Math.min(H-1,y+r);j++)for(let i=Math.max(1,(x-r)|0);i<Math.min(W-1,x+r);i++){
-      const d=(i-x)*(i-x)+(j-y)*(j-y);if(d>r2)continue;const w=Math.exp(-d/(r2*0.4)),k=i+j*W;
-      u[k]+=dx*w;v[k]+=dy*w;for(let ch=0;ch<3;ch++)dye[ch][k]=Math.min(255,dye[ch][k]+c[ch]*w*0.45);}}
-  function step(){
-    let s=u0;u0=u;u=s;s=v0;v0=v;v=s;
-    advect(u,u0,u0,v0,0.985);advect(v,v0,u0,v0,0.985);project();
-    for(let ch=0;ch<3;ch++){s=dye0[ch];dye0[ch]=dye[ch];dye[ch]=s;advect(dye[ch],dye0[ch],u,v,0.995);}
+  function pass(p,target,u){
+    gl.useProgram(p);let unit=0;
+    for(const k in u){const loc=p.u[k]??(p.u[k]=gl.getUniformLocation(p,k)),x=u[k];
+      if(x.tex){gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,x.tex);gl.uniform1i(loc,unit++);}
+      else if(typeof x==="number")gl.uniform1f(loc,x);
+      else if(x.length===2)gl.uniform2f(loc,x[0],x[1]);
+      else gl.uniform3f(loc,x[0],x[1],x[2]);}
+    gl.bindFramebuffer(gl.FRAMEBUFFER,target?target.fb:null);
+    if(target)gl.viewport(0,0,fw,fh);else gl.viewport(0,0,cv.width,cv.height);
+    gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
   }
-  function draw(){const d=img.data;for(let i=0;i<N;i++){const r=dye[0][i],g=dye[1][i],b=dye[2][i],o=i*4;d[o]=r;d[o+1]=g;d[o+2]=b;d[o+3]=Math.min(255,Math.max(r,g,b)*1.4);}ctx.putImageData(img,0,0);}
-  let t=0,ax=W/2,ay=H/2,px=null,py=null,lastMove=-1e9;
-  const col=()=>PAL[Math.floor(t/110)%3];
-  let bx=W/2,by=H/2;
-  function auto(){const nx=W*(0.5+0.44*Math.sin(t*0.011)),ny=H*(0.42+0.3*Math.sin(t*0.017+1));splat(nx,ny,(nx-ax)*1.2,(ny-ay)*1.2,col(),7);ax=nx;ay=ny;
-    const mx=W*(0.5+0.44*Math.cos(t*0.007+2)),my=H*(0.42+0.3*Math.sin(t*0.013+4));splat(mx,my,(mx-bx)*1.2,(my-by)*1.2,PAL[(Math.floor(t/110)+1)%3],7);bx=mx;by=my;}
-  if(matchMedia("(prefers-reduced-motion: reduce)").matches){for(let i=0;i<220;i++){t++;auto();step();}draw();return;}
-  window.addEventListener("pointermove",e=>{const r=host.getBoundingClientRect();if(e.clientY<r.top||e.clientY>r.bottom){px=null;return;}
-    const x=(e.clientX-r.left)/r.width*W,y=(e.clientY-r.top)/r.height*H;
-    if(px!=null&&(x!==px||y!==py))splat(x,y,(x-px)*0.6,(y-py)*0.6,col(),6);
-    px=x;py=y;lastMove=performance.now();},{passive:true});
-  let run=false,vis=true;
-  function frame(){if(!run)return;t++;if(performance.now()-lastMove>1500)auto();step();draw();requestAnimationFrame(frame);}
-  const start=()=>{if(run||!vis||document.hidden)return;run=true;requestAnimationFrame(frame);},stop=()=>{run=false;};
-  if("IntersectionObserver" in window) new IntersectionObserver(es=>{vis=es[0].isIntersecting;vis?start():stop();}).observe(host);
+
+  /* İmleç: -1..1 koordinatları (y yukarı). Boşta otomatik sürücü devralır, imleç gelince yumuşakça geri verir. */
+  let coords=[0,0],old=[0,0],first=true,autoOn=false,tk=null,lastUser=performance.now();
+  const auto={active:false,cur:[0,0],tgt:[0,0],last:0,since:0};
+  const pick=()=>{auto.tgt=[(Math.random()*2-1)*.8,(Math.random()*2-1)*.8];};pick();
+  window.addEventListener("pointermove",e=>{
+    const r=host.getBoundingClientRect();
+    if(!r.width||e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)return;
+    const to=[(e.clientX-r.left)/r.width*2-1,-((e.clientY-r.top)/r.height*2-1)];
+    lastUser=performance.now();auto.active=false;
+    if(autoOn&&!tk){tk={from:coords.slice(),to,t0:lastUser};autoOn=false;return;}
+    autoOn=false;
+    if(tk)tk.to=to;else coords=to;
+  },{passive:true});
+  function driveAuto(now){
+    if(now-lastUser<C.resume){auto.active=false;autoOn=false;return;}
+    if(!auto.active){auto.active=true;auto.cur=coords.slice();auto.last=now;auto.since=now;}
+    autoOn=true;
+    const dts=Math.min((now-auto.last)/1000,.05);auto.last=now;
+    const dx=auto.tgt[0]-auto.cur[0],dy=auto.tgt[1]-auto.cur[1],dist=Math.hypot(dx,dy);
+    if(dist<.01){pick();return;}
+    let k=Math.min(1,(now-auto.since)/C.ramp);k=k*k*(3-2*k);
+    const s=Math.min(C.autoSpeed*dts*k,dist)/dist;
+    auto.cur[0]+=dx*s;auto.cur[1]+=dy*s;coords=auto.cur.slice();
+  }
+  function pointerDelta(now){
+    if(tk){const t=(now-tk.t0)/C.takeover;
+      if(t>=1){coords=tk.to;old=coords.slice();tk=null;}
+      else{const e=t*t*(3-2*t);coords=[tk.from[0]+(tk.to[0]-tk.from[0])*e,tk.from[1]+(tk.to[1]-tk.from[1])*e];}}
+    const d=[coords[0]-old[0],coords[1]-old[1]];old=coords.slice();
+    if(first){first=false;return [0,0];}
+    if(autoOn&&!tk){d[0]*=C.autoGain;d[1]*=C.autoGain;}
+    return d;
+  }
+  function step(now){
+    const active=now-lastUser<2000;
+    driveAuto(now);const d=pointerDelta(now);
+    const px=[1/fw,1/fh],size=[fw,fh],mf=C.force*(active?1:.4),itV=active?C.itV:Math.min(8,C.itV),itP=C.itP;
+    pass(P.adv,F.vel1,{velocity:F.vel0,dt:C.dt,fboSize:size});
+    const cur=Math.min(C.cursor,.6*Math.min(fw,fh)),rx=cur*px[0],ry=cur*px[1];
+    const cx=Math.min(Math.max(coords[0],-1+rx+2*px[0]),1-rx-2*px[0]),cy=Math.min(Math.max(coords[1],-1+ry+2*px[1]),1-ry-2*px[1]);
+    gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);
+    pass(P.force,F.vel1,{center:[cx,cy],scale:[rx,ry],force:[d[0]/2*mf,d[1]/2*mf]});
+    gl.disable(gl.BLEND);
+    for(let i=0;i<itV;i++)pass(P.visc,i%2?F.visc0:F.visc1,{velocity:F.vel1,velocity_new:i%2?F.visc1:F.visc0,v:C.visc,dt:C.dt,px});
+    const vel=itV%2?F.visc1:F.visc0;
+    pass(P.div,F.div,{velocity:vel,dt:C.dt,px});
+    let pr=F.pres0;
+    for(let i=0;i<itP;i++){pr=i%2?F.pres0:F.pres1;pass(P.pois,pr,{pressure:i%2?F.pres1:F.pres0,divergence:F.div,px});}
+    pass(P.pres,F.vel0,{pressure:pr,velocity:vel,dt:C.dt,px});
+    gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.clear(gl.COLOR_BUFFER_BIT);
+    pass(P.out,null,{velocity:F.vel0,c0:PAL[0],c1:PAL[1],c2:PAL[2]});
+  }
+
+  let on=false,vis=true,dead=false,lastT=0;
+  function frame(t){
+    if(!on)return;requestAnimationFrame(frame);
+    const now=performance.now(),iv=now-lastUser<2000?1000/60:1000/30;
+    if(t-lastT<iv-2)return;lastT=t;
+    try{step(now);}catch{dead=true;on=false;off();}
+  }
+  const start=()=>{if(on||dead||!vis||document.hidden)return;on=true;requestAnimationFrame(frame);},stop=()=>{on=false;};
+  resize();
+  if("ResizeObserver" in window)new ResizeObserver(()=>{if(!dead)try{resize();}catch{dead=true;stop();off();}}).observe(host);
+  if("IntersectionObserver" in window)new IntersectionObserver(es=>{vis=es[0].isIntersecting;vis?start():stop();}).observe(host);
   document.addEventListener("visibilitychange",()=>document.hidden?stop():start());
-  for(let i=0;i<300;i++){t++;auto();step();}draw();
+  cv.addEventListener("webglcontextlost",()=>{dead=true;stop();off();});
   start();
-}catch{}})();
+  }catch{off();}
+})();
 
 state.view=viewFromHash();
 setView(state.view);
