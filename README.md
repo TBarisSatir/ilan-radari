@@ -19,17 +19,14 @@ Günlük taramayla bulunan iş ilanlarını tek sayfada toplayan, başvuru süre
 
 ## Ekran görüntüleri
 
-<!-- EKRAN GÖRÜNTÜSÜ: başvuru kartı ve süreç adımları -->
-<!-- ![Başvuru süreci](docs/screenshots/surec.png) -->
+<img width="1918" height="1028" alt="image" src="https://github.com/user-attachments/assets/d4b8fdee-72d7-42ea-963d-f70251a3bbdc" />
 
-<!-- EKRAN GÖRÜNTÜSÜ: filtre paneli açık hâli -->
-<!-- ![Filtreler](docs/screenshots/filtreler.png) -->
 
-<!-- EKRAN GÖRÜNTÜSÜ: istatistik görünümü ve rapor -->
-<!-- ![İstatistik](docs/screenshots/istatistik.png) -->
+<img width="1919" height="1030" alt="image" src="https://github.com/user-attachments/assets/c4220aec-7850-43aa-80ad-71342f3e0a0a" />
 
-<!-- EKRAN GÖRÜNTÜSÜ veya GIF: akışkan arka plan -->
-<!-- ![Akışkan arka plan](docs/screenshots/arka-plan.gif) -->
+
+<img width="1919" height="1028" alt="image" src="https://github.com/user-attachments/assets/0ea8e914-6795-4fb0-93a4-c6bb4b913837" />
+
 
 ## Nasıl çalışır
 
