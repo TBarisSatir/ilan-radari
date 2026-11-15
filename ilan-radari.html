@@ -19,6 +19,8 @@
   --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
   --ease:cubic-bezier(.22,1,.36,1);
 }
+/* Kaydırma çubuğunun yeri hep ayrılır; içerik uzayıp çubuk gelince sayfa sola kaymaz */
+html{scrollbar-gutter:stable;background:var(--bg)}
 body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:14px;line-height:20px}
 .wrap{max-width:820px;margin:0 auto;padding-block:32px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:24px}
 header{display:flex;flex-direction:column;gap:8px}
@@ -156,6 +158,10 @@ select.set{border-color:var(--muted);background:var(--surface-2);font-weight:500
 .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
 .toolbar .btn{min-height:36px}
 .toolbar .btn[aria-expanded="true"]{border-color:var(--muted);background:var(--surface)}
+/* "Başvuru ekle" / "İptal et": iki etiket aynı hücrede durur, biri gizlenir; buton genişliği hep uzun olana göre kalır */
+#add-open{display:inline-grid;justify-items:center}
+#add-open>span{grid-area:1/1}
+#add-open[aria-expanded="false"]>span:last-child,#add-open[aria-expanded="true"]>span:first-child{visibility:hidden}
 #add-done:empty{display:none}
 .addwrap:has(#addform[hidden]):has(#add-done:empty){display:none}
 
@@ -285,7 +291,7 @@ button:focus-visible,a:focus-visible,summary:focus-visible,textarea:focus-visibl
       <button data-v="list" aria-pressed="true">İlanlar</button>
       <button data-v="stats" aria-pressed="false">İstatistik</button>
     </div>
-    <button type="button" class="btn" id="add-open">+ Başvuru ekle</button>
+    <button type="button" class="btn" id="add-open" aria-expanded="false" aria-controls="addform"><span>+ Başvuru ekle</span><span>İptal et</span></button>
   </div>
 
   <div id="v-stats" class="vstack" hidden>
@@ -374,7 +380,7 @@ button:focus-visible,a:focus-visible,summary:focus-visible,textarea:focus-visibl
           <button type="button" data-v="Hybrid" aria-pressed="false">Hybrid</button><button type="button" data-v="Onsite" aria-pressed="false">Onsite</button><button type="button" data-v="Remote" aria-pressed="false">Remote</button><button type="button" data-v="Belirtilmemiş" aria-pressed="true">Bilmiyorum</button>
         </div></div>
       <label class="fld"><span class="lbl">Not</span><textarea class="rin" id="m-note" rows="2" maxlength="1000" placeholder="İletişim kişisi, nasıl başvurduğun, maaş beklentisi…"></textarea></label>
-      <div class="dl"><button type="button" class="btn on big" id="m-save">Başvuruyu kaydet</button><button type="button" class="btn ghost" id="m-cancel">Vazgeç</button><span class="stepmsg" id="m-msg"></span></div>
+      <div class="dl"><button type="button" class="btn on big" id="m-save">Başvuruyu kaydet</button><span class="stepmsg" id="m-msg"></span></div>
     </section>
   </div>
   <section class="filters" aria-label="Filtreler ve sıralama">
@@ -840,6 +846,7 @@ function renderStats(){
 function setView(v){
   state.view=v;$("v-stats").hidden=v!=="stats";$("v-list").hidden=v==="stats";syncSeg("seg-view",v);
   if(v==="stats") renderStats();
+  syncAddBtn();
 }
 const viewFromHash=()=>location.hash==="#istatistik"?"stats":"list";
 window.addEventListener("hashchange",()=>setView(viewFromHash()));
@@ -907,15 +914,19 @@ function openAdd(){
   if(state.view!=="list"){try{location.hash="ilanlar";}catch{} setView("list");}
   $("addform").hidden=false;$("add-done").textContent="";
   if(!$("m-date").value) $("m-date").value=isoLocal(new Date());
-  syncM();$("m-company").focus();
+  syncM();syncAddBtn();$("m-company").focus();
+}
+/* Üstteki buton form açıkken "İptal et" olur; form yalnızca İlanlar görünümünde göründüğü için İstatistik'te yine "Başvuru ekle" kalır */
+function addOpen(){return !$("addform").hidden&&state.view==="list";}
+function syncAddBtn(){
+  $("add-open").setAttribute("aria-expanded",addOpen()?"true":"false");
 }
 function closeAdd(reset){
-  $("addform").hidden=true;$("add-open").hidden=false;$("m-msg").textContent="";mstate.dupArmed="";
+  $("addform").hidden=true;$("m-msg").textContent="";mstate.dupArmed="";syncAddBtn();
   if(reset){["m-company","m-title","m-url","m-loc","m-note","m-source-other","m-date"].forEach(i=>$(i).value="");
     $("m-source").selectedIndex=0;$("m-source-other-wrap").hidden=true;mstate.track="Yazılım";mstate.mode="Belirtilmemiş";syncM();}
 }
-$("add-open").addEventListener("click",openAdd);
-$("m-cancel").addEventListener("click",()=>{closeAdd(false);$("add-open").focus();});
+$("add-open").addEventListener("click",()=>{addOpen()?closeAdd(false):openAdd();});
 $("m-track").addEventListener("click",e=>{const b=e.target.closest("button[data-v]");if(b){mstate.track=b.dataset.v;syncM();}});
 $("m-mode").addEventListener("click",e=>{const b=e.target.closest("button[data-v]");if(b){mstate.mode=b.dataset.v;syncM();}});
 $("m-source").addEventListener("change",e=>{$("m-source-other-wrap").hidden=e.target.value!=="__other";if(e.target.value==="__other")$("m-source-other").focus();});
