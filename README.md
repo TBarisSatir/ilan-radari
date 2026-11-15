@@ -19,13 +19,14 @@ Günlük taramayla bulunan iş ilanlarını tek sayfada toplayan, başvuru süre
 
 ## Ekran görüntüleri
 
-<img width="1918" height="1028" alt="image" src="https://github.com/user-attachments/assets/d4b8fdee-72d7-42ea-963d-f70251a3bbdc" />
+<img width="1919" height="1029" alt="image" src="https://github.com/user-attachments/assets/570f315a-816c-4c2c-9b97-e6caf01357c4" />
 
 
-<img width="1919" height="1030" alt="image" src="https://github.com/user-attachments/assets/c4220aec-7850-43aa-80ad-71342f3e0a0a" />
+<img width="1919" height="1029" alt="image" src="https://github.com/user-attachments/assets/355ddda5-f160-4232-a015-f90b67a6a94e" />
 
 
-<img width="1919" height="1028" alt="image" src="https://github.com/user-attachments/assets/0ea8e914-6795-4fb0-93a4-c6bb4b913837" />
+<img width="1919" height="1029" alt="image" src="https://github.com/user-attachments/assets/e40daa83-1938-4c37-b491-41932e2db928" />
+
 
 
 ## Nasıl çalışır
