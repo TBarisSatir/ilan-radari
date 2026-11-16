@@ -427,6 +427,13 @@ button:focus-visible,a:focus-visible,summary:focus-visible,textarea:focus-visibl
         <button data-v="no" aria-pressed="false">Not yok</button>
       </div>
     </div>
+    <div class="ctl" id="ctl-prog" hidden>
+      <span class="lbl">Süreç</span>
+      <div class="seg" id="seg-prog" role="group" aria-label="Süreç filtresi">
+        <button data-v="" aria-pressed="true">Hepsi</button>
+        <button data-v="yes" aria-pressed="false">Adım eklenenler<span class="n" id="c-prog"></span></button>
+      </div>
+    </div>
     <div class="ctl">
       <span class="lbl">Diğer</span>
       <div class="row more">
@@ -477,7 +484,7 @@ const lbl=s=>(s.kind==="other"||s.kind==="custom")?(s.label||"Diğer"):(KIND_LAB
 const newDraft=()=>({kind:"hr_screen",date:today(),note:"",custom:""});
 const today=()=>new Date().toISOString().slice(0,10);
 const state={jobs:[],runs:[],status:"new",sort:"date",db:null,pending:false,open:new Set(),stepOpen:new Set(),draft:{},
-  fx:{mode:"",track:"",location:"",source:"",tier:"",hasnote:"",fav:"",q:""}};
+  fx:{mode:"",track:"",location:"",source:"",tier:"",hasnote:"",fav:"",prog:"",q:""}};
 const SEL={track:"Alan",mode:"Çalışma şekli",location:"Lokasyon",source:"Kaynak"};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -485,6 +492,8 @@ const norm=s=>String(s??"").toLocaleLowerCase("tr");
 const editing=()=>document.activeElement?.matches?.("textarea[data-note], .stepform input, .stepform select");
 const stepsOf=j=>[...(Array.isArray(j.steps)?j.steps:[])].sort((a,b)=>(a.date||"").localeCompare(b.date||"")||(a.id||"").localeCompare(b.id||""));
 const isClosed=j=>(Array.isArray(j.steps)?j.steps:[]).some(s=>s.kind==="rejected");
+/* Süreci ilerleyen başvuru: "Başvuru yapıldı"dan sonra en az bir adım eklenmiş olan */
+const hasSteps=j=>Array.isArray(j.steps)&&j.steps.length>0;
 const stageStep=j=>{const s=stepsOf(j);return s.length?s[s.length-1]:{kind:"applied",label:"Başvuru yapıldı"};};
 const stCls=s=>(s.kind==="offer"||s.kind==="offer_accepted")?"good":(s.kind==="rejected"||s.kind==="withdrawn")?"end":s.kind==="applied"?"":"act";
 const dt=d=>/^\d{4}-\d{2}-\d{2}/.test(String(d??""))?String(d).slice(0,10).split("-").reverse().join("."):String(d??"");
@@ -497,6 +506,7 @@ function passFx(j){
   if(fx.hasnote==="yes"&&!hasNote(j)) return false;
   if(fx.hasnote==="no"&&hasNote(j)) return false;
   if(fx.fav==="yes"&&!j.fav) return false;
+  if(fx.prog==="yes"&&!hasSteps(j)) return false;
   if(fx.q){const hay=norm([j.company,j.title,j.matched,j.experience,j.note,j.location,j.track,...stepsOf(j).map(s=>lbl(s)+" "+(s.note||""))].join(" "));
     if(!norm(fx.q).split(/\s+/).filter(Boolean).every(w=>hay.includes(w))) return false;}
   return true;
@@ -584,6 +594,10 @@ function render(force){
   state.pending=false;
   fillSelects();
   syncSeg("seg-status",state.status);syncSeg("seg-note",state.fx.hasnote);syncSeg("seg-fav",state.fx.fav);$("f-sort").value=state.sort;
+  /* Süreç filtresi yalnızca "Başvurdum" sekmesinde görünür ve geçerlidir */
+  if(state.status!=="applied") state.fx.prog="";
+  $("ctl-prog").hidden=state.status!=="applied";syncSeg("seg-prog",state.fx.prog);
+  $("c-prog").textContent=state.jobs.filter(j=>j.status==="applied"&&hasSteps(j)).length||"";
   const inTab=state.jobs.filter(j=>state.status==="all"||(j.status||"new")===state.status);
   const rows=inTab.filter(passFx).sort(SORTS[state.sort]);
   $("list").innerHTML=rows.length?rows.map(card).join(""):
@@ -623,6 +637,7 @@ function segBind(id,fn){$(id).addEventListener("click",e=>{const b=e.target.clos
 segBind("seg-status",v=>state.status=v);
 segBind("seg-note",v=>state.fx.hasnote=v);
 segBind("seg-fav",v=>state.fx.fav=v);
+segBind("seg-prog",v=>state.fx.prog=v);
 $("f-sort").addEventListener("change",e=>{state.sort=e.target.value;render(true);});
 function showFilters(on){$("f-panel").hidden=!on;$("f-toggle").setAttribute("aria-expanded",String(on));}
 $("f-toggle").addEventListener("click",()=>showFilters($("f-panel").hidden));
