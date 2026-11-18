@@ -287,9 +287,9 @@ select.set{border-color:var(--muted);background:var(--surface-2);font-weight:500
 .sthead svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 @media (min-width:900px){.statsv{padding:32px 28px}}
 
-/* Dar ekran: sağ sütun ilan panelinin üstüne gelir; orta genişlikte önizleme ve slaytlar yan yana */
+/* Dar ekran: ilan paneli en üstte, sağ sütun altına gelir; orta genişlikte önizleme ve slaytlar yan yana */
 @media (max-width:1079px){
-  .dash{grid-template-columns:minmax(0,1fr);grid-template-areas:"aside" "main"}
+  .dash{grid-template-columns:minmax(0,1fr);grid-template-areas:"main" "aside"}
   .aside{position:static;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:stretch}
 }
 @media (max-width:719px){
