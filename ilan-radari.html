@@ -1443,7 +1443,9 @@ $("m-save").addEventListener("click",async()=>{
   const gl=cv.getContext("webgl2",{alpha:true,antialias:false,depth:false,stencil:false,powerPreference:"low-power"});
   if(!gl||!(gl.getExtension("EXT_color_buffer_float")||gl.getExtension("EXT_color_buffer_half_float")))return off();
   const small=matchMedia("(max-width: 991px)").matches;
-  const C={force:20,cursor:small?40:160,visc:30,itV:small?12:16,itP:8,dt:.014,res:small?.3:.4,autoSpeed:.5,autoGain:2.2,takeover:250,resume:500,ramp:500};
+  /* bounce: pencere kenarları duvar gibi davranır, akış kenara çarpınca geri seker.
+     false yaparsan eski davranış (akış kenardan dışarı akıp söner) aynen geri gelir; duvar geçişleri hiç çalışmaz. */
+  const C={force:20,cursor:small?40:160,visc:30,itV:small?12:16,itP:8,dt:.014,res:small?.3:.4,autoSpeed:.5,autoGain:2.2,takeover:250,resume:500,ramp:500,bounce:true};
   const PAL=[[224,17,95],[224,17,95],[255,72,136]].map(c=>c.map(x=>x/255));
   /* Turkuaz vurgu: yalnızca arka planda, akışın belirli bir yöne aktığı orta hızlı damarlarda hafifçe belirir */
   const TQ=[64,224,208].map(x=>x/255);
@@ -1459,6 +1461,13 @@ vec2 a=uv-texture2D(velocity,uv).xy*dt*r;
 vec2 b=a+texture2D(velocity,a).xy*dt*r;
 vec2 c=uv-(b-uv)*.5;
 gl_FragColor=vec4(texture2D(velocity,c-texture2D(velocity,c).xy*dt*r).xy,0.,0.);}`,
+    /* Duvar: kenardaki hücre içerideki komşusunun hızını alır, duvara dik bileşeni sıfırlanır (akış duvardan geçemez,
+       basınç onu geri ve kenar boyunca iter). Bileşeni ters çevirmek her adımda işaret değiştirip kenarda titreşim yapıyordu. */
+    bnd:H+`uniform sampler2D velocity;uniform vec2 px;
+void main(){vec2 o=vec2(0.);vec2 f=vec2(1.);
+if(uv.x<px.x){o.x=px.x;f.x=0.;}else if(uv.x>1.-px.x){o.x=-px.x;f.x=0.;}
+if(uv.y<px.y){o.y=px.y;f.y=0.;}else if(uv.y>1.-px.y){o.y=-px.y;f.y=0.;}
+gl_FragColor=vec4(texture2D(velocity,uv+o).xy*f,0.,0.);}`,
     copy:H+`uniform sampler2D velocity;
 void main(){gl_FragColor=texture2D(velocity,uv);}`,
     force:H+`uniform vec2 force;
@@ -1504,7 +1513,7 @@ gl_FragColor=vec4(mix(c,tq,w)*al,al);}`
   gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
   gl.clearColor(0,0,0,0);
 
-  let fw=0,fh=0;const F={},NAMES=["vel0","vel1","visc0","visc1","div","pres0","pres1"];
+  let fw=0,fh=0;const F={},NAMES=["vel0","vel1","visc0","visc1","div","pres0","pres1","tmp"];
   const mk=()=>{const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);
     gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA16F,fw,fh,0,gl.RGBA,gl.HALF_FLOAT,null);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
@@ -1576,7 +1585,8 @@ gl_FragColor=vec4(mix(c,tq,w)*al,al);}`
     const active=now-lastUser<2000;
     driveAuto(now);const d=pointerDelta(now);
     const px=[1/fw,1/fh],size=[fw,fh],mf=C.force*(active?1:.4),itV=active?C.itV:Math.min(8,C.itV),itP=C.itP;
-    pass(P.adv,F.vel1,{velocity:F.vel0,dt:C.dt,fboSize:size});
+    if(C.bounce){pass(P.adv,F.tmp,{velocity:F.vel0,dt:C.dt,fboSize:size});pass(P.bnd,F.vel1,{velocity:F.tmp,px});}
+    else pass(P.adv,F.vel1,{velocity:F.vel0,dt:C.dt,fboSize:size});
     const cur=Math.min(C.cursor,.6*Math.min(fw,fh)),rx=cur*px[0],ry=cur*px[1];
     const cx=Math.min(Math.max(coords[0],-1+rx+2*px[0]),1-rx-2*px[0]),cy=Math.min(Math.max(coords[1],-1+ry+2*px[1]),1-ry-2*px[1]);
     gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);
@@ -1587,7 +1597,8 @@ gl_FragColor=vec4(mix(c,tq,w)*al,al);}`
     pass(P.div,F.div,{velocity:vel,dt:C.dt,px});
     let pr=F.pres0;
     for(let i=0;i<itP;i++){pr=i%2?F.pres0:F.pres1;pass(P.pois,pr,{pressure:i%2?F.pres1:F.pres0,divergence:F.div,px});}
-    pass(P.pres,F.vel0,{pressure:pr,velocity:vel,dt:C.dt,px});
+    if(C.bounce){pass(P.pres,F.tmp,{pressure:pr,velocity:vel,dt:C.dt,px});pass(P.bnd,F.vel0,{velocity:F.tmp,px});}
+    else pass(P.pres,F.vel0,{pressure:pr,velocity:vel,dt:C.dt,px});
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.clear(gl.COLOR_BUFFER_BIT);
     pass(P.out,null,{velocity:F.vel0,c0:PAL[0],c1:PAL[1],c2:PAL[2],tq:TQ,time:now/1000});
   }
