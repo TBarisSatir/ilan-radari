@@ -48,6 +48,17 @@ Dosya bir claude.ai artifact'i olarak yayınlanmak üzere yazılmıştır ve bu 
 
 Dosyayı tarayıcıda doğrudan açarsan arayüz görünür ama veri gelmez, çünkü veritabanına yalnızca claude.ai içinde erişilebilir. Bu durumda sayfa "Kayıtlara ulaşılamıyor" mesajını gösterir.
 
+## Test
+
+`tests/` klasöründeki karşılaştırma testi, çalışma kopyasındaki sayfayı bir git sürümüyle karşılaştırır. Davranışı değiştirmemesi gereken düzenlemelerden sonra çalıştırılır:
+
+```
+node tests/check.js          # son commit ile karşılaştırır
+node tests/check.js <sürüm>  # belirli bir sürümle karşılaştırır
+```
+
+Her iki sürüm de sahte veritabanı ve sabit tarihle headless Chrome'da açılır, 113 senaryo 375, 900 ve 1400 piksel genişlikte çalışır. Her senaryoda sayfanın HTML'i, tarayıcıda saklananlar ve veritabanı yazımları; seçili senaryolarda görünen her öğenin hesaplanmış stili (üzerine gelme, klavye odağı ve basılı durumlar dahil) karşılaştırılır. Fark yoksa `AYNI` yazar. Node.js ve Google Chrome gerekir; Chrome başka bir yerdeyse yolu `CHROME` ortam değişkeniyle verilir. Akışkan arka plan ve PDF indirme testin kapsamı dışındadır.
+
 ## Sürüm geçmişi
 
 Commit geçmişi artifact'in 17. sürümünden başlar; daha önceki sürümler artifact'ten geri alınamadı.
