@@ -858,14 +858,16 @@ function fallbackHtml(n){
   const fav=favOpen(),g=fav.length?{k:"fav",t:"Başvurmadığın favoriler",d:"Favoriye eklediğin, henüz başvurmadığın ilanlar",a:fav}
     :{k:"prog",t:"İlerleyen başvurular",d:"Süreç adımı eklenmiş, kapanmamış başvurular",a:progressing()};
   if(!g.a.length) return "";
-  const min=!!fbMin[g.k];
+  const min=fbIsMin(g.k);
   return `<section class="fb${min?" min":""}" aria-label="${esc(g.t)}"><div class="fb-hd"><div><h2>${esc(g.t)}<span class="badge">${g.a.length}</span></h2><p>${esc(g.d)}</p></div>
     <button type="button" class="btn ghost fb-tg" data-fbtoggle="${g.k}" aria-expanded="${!min}" aria-controls="fb-body">${CHEV}<span>${min?"Büyüt":"Küçült"}</span></button></div>
     <div class="fb-body" id="fb-body"${min?" hidden":""}>${g.a.map(card).join("")}</div></section>`;
 }
-/* Yedek bölümün küçültülmüş hâli bu tarayıcıda hatırlanır (yalnızca görünüm tercihi) */
-const FB_KEY="ir-fallback-v1";
+/* Yedek bölümün küçültülmüş hâli bu tarayıcıda hatırlanır (yalnızca görünüm tercihi).
+   Varsayılan: ilerleyen başvurular küçük, favoriler açık. Anahtar v2: v1'deki eski tercihler yeni varsayılanı ezmesin. */
+const FB_KEY="ir-fallback-v2",FB_DEF={prog:true,fav:false};
 const fbMin=(()=>{try{const v=JSON.parse(localStorage.getItem(FB_KEY)||"{}");return v&&typeof v==="object"?v:{};}catch{return {};}})();
+const fbIsMin=k=>typeof fbMin[k]==="boolean"?fbMin[k]:!!FB_DEF[k];
 
 async function saveNote(id){
   const ta=document.querySelector(`textarea[data-note="${CSS.escape(id)}"]`);
@@ -897,7 +899,7 @@ $("f-clear").addEventListener("click",()=>{for(const k in state.fx) state.fx[k]=
 
 $("list").addEventListener("click",async e=>{
   const ft=e.target.closest("button[data-fbtoggle]");
-  if(ft){const k=ft.dataset.fbtoggle;fbMin[k]=!fbMin[k];try{localStorage.setItem(FB_KEY,JSON.stringify(fbMin));}catch{}
+  if(ft){const k=ft.dataset.fbtoggle;fbMin[k]=!fbIsMin(k);try{localStorage.setItem(FB_KEY,JSON.stringify(fbMin));}catch{}
     render(true);document.querySelector(`button[data-fbtoggle="${k}"]`)?.focus();return;}
   const ws=e.target.closest("button[data-scope]");
   if(ws){state.scope=ws.dataset.scope;render(true);$("seg-scope").querySelector(`button[data-v="${ws.dataset.scope}"]`)?.focus();return;}
