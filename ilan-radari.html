@@ -222,7 +222,12 @@ select.set{border-color:var(--muted);background:var(--surface-2);font-weight:500
 .empty .btn{margin-top:12px}
 /* Boş ana liste yedeği: başlık ve kartlar listenin akışında */
 .fb{display:flex;flex-direction:column;gap:12px;margin-top:12px}
-.fb-hd{display:flex;flex-direction:column;gap:4px}
+.fb-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.fb-hd>div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.fb-tg{flex:none;gap:4px;padding-left:8px}
+.fb-tg svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transform:rotate(180deg);transition:transform .15s var(--ease)}
+.fb.min .fb-tg svg{transform:none}
+.fb-body{display:flex;flex-direction:column;gap:12px}
 .fb-hd h2{margin:0;font:600 16px/24px var(--display);display:flex;align-items:center;gap:8px}
 .fb-hd p{margin:0;font-size:13px;color:var(--muted)}
 .job{scroll-margin-top:24px}
@@ -850,11 +855,17 @@ function render(force){
 /* Ana sayfa (Yeni sekmesi, filtre yok) boş kalınca boş kutunun altında önce başvurulmamış favoriler, onlar da yoksa süreci ilerleyen başvurular listelenir */
 function fallbackHtml(n){
   if(n||state.status!=="new"||Object.values(state.fx).some(Boolean)||!state.jobs.length) return "";
-  const fav=favOpen(),g=fav.length?{t:"Başvurmadığın favoriler",d:"Favoriye eklediğin, henüz başvurmadığın ilanlar",a:fav}
-    :{t:"İlerleyen başvurular",d:"Süreç adımı eklenmiş, kapanmamış başvurular",a:progressing()};
+  const fav=favOpen(),g=fav.length?{k:"fav",t:"Başvurmadığın favoriler",d:"Favoriye eklediğin, henüz başvurmadığın ilanlar",a:fav}
+    :{k:"prog",t:"İlerleyen başvurular",d:"Süreç adımı eklenmiş, kapanmamış başvurular",a:progressing()};
   if(!g.a.length) return "";
-  return `<section class="fb" aria-label="${esc(g.t)}"><div class="fb-hd"><h2>${esc(g.t)}<span class="badge">${g.a.length}</span></h2><p>${esc(g.d)}</p></div>${g.a.map(card).join("")}</section>`;
+  const min=!!fbMin[g.k];
+  return `<section class="fb${min?" min":""}" aria-label="${esc(g.t)}"><div class="fb-hd"><div><h2>${esc(g.t)}<span class="badge">${g.a.length}</span></h2><p>${esc(g.d)}</p></div>
+    <button type="button" class="btn ghost fb-tg" data-fbtoggle="${g.k}" aria-expanded="${!min}" aria-controls="fb-body">${CHEV}<span>${min?"Büyüt":"Küçült"}</span></button></div>
+    <div class="fb-body" id="fb-body"${min?" hidden":""}>${g.a.map(card).join("")}</div></section>`;
 }
+/* Yedek bölümün küçültülmüş hâli bu tarayıcıda hatırlanır (yalnızca görünüm tercihi) */
+const FB_KEY="ir-fallback-v1";
+const fbMin=(()=>{try{const v=JSON.parse(localStorage.getItem(FB_KEY)||"{}");return v&&typeof v==="object"?v:{};}catch{return {};}})();
 
 async function saveNote(id){
   const ta=document.querySelector(`textarea[data-note="${CSS.escape(id)}"]`);
@@ -885,6 +896,9 @@ $("f-q").addEventListener("input",e=>{state.fx.q=e.target.value.trim();render(tr
 $("f-clear").addEventListener("click",()=>{for(const k in state.fx) state.fx[k]="";$("f-q").value="";render(true);});
 
 $("list").addEventListener("click",async e=>{
+  const ft=e.target.closest("button[data-fbtoggle]");
+  if(ft){const k=ft.dataset.fbtoggle;fbMin[k]=!fbMin[k];try{localStorage.setItem(FB_KEY,JSON.stringify(fbMin));}catch{}
+    render(true);document.querySelector(`button[data-fbtoggle="${k}"]`)?.focus();return;}
   const ws=e.target.closest("button[data-scope]");
   if(ws){state.scope=ws.dataset.scope;render(true);$("seg-scope").querySelector(`button[data-v="${ws.dataset.scope}"]`)?.focus();return;}
   const tg=e.target.closest("button[data-fk]");
