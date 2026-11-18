@@ -32,7 +32,7 @@ h1 span{color:var(--pink)}
 /* İmza: başlıktaki pembe nokta, yalnızca son taramada yeni gelen şeyi işaretler */
 .blip,.stats b.p::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--pink);vertical-align:middle;margin-right:8px}
 
-.btn,.job>.act a,.tag,.fav,.sdel,.clear,.seg button,.kopts button,.secs button,.tabs button,select,.search,.rin,.stepform input,.notebox textarea{transition:background-color .15s var(--ease),border-color .15s var(--ease),color .15s var(--ease)}
+.btn,.csel>button,.job>.act a,.tag,.fav,.sdel,.clear,.seg button,.kopts button,.secs button,.tabs button,select,.search,.rin,.stepform input,.notebox textarea{transition:background-color .15s var(--ease),border-color .15s var(--ease),color .15s var(--ease)}
 
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:16px}
 .row{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}
@@ -54,6 +54,27 @@ select{font:13px/20px var(--body);color:var(--fg);background:var(--bg);border:1p
 select.set{border-color:var(--muted);background:var(--surface-2);font-weight:500}
 .clear{font:500 13px/20px var(--body);background:transparent;border:0;color:var(--amber);cursor:pointer;padding:4px 0}
 .fcount{font-size:13px;color:var(--muted);margin:0}
+/* Açılır listeler: yerel select gizli kalır (değer ve change olayı onda); görünen düğme ve seçenek listesi sayfanın kontrolleriyle aynı dilde */
+.csel{position:relative;display:inline-flex;min-width:0;max-width:100%}
+.csel>button{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;height:36px;box-sizing:border-box;font:400 13px/20px var(--body);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:0 8px 0 12px;cursor:pointer;text-align:left}
+.csel>button>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.csel>button>svg{flex:none;width:16px;height:16px;fill:none;stroke:var(--muted);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform .15s var(--ease)}
+.csel>button:hover{border-color:var(--muted)}
+.csel>button[aria-expanded="true"]{border-color:var(--muted);background:var(--surface)}
+.csel>button[aria-expanded="true"]>svg{transform:rotate(180deg)}
+.csel.set>button{border-color:var(--muted);background:var(--surface-2);font-weight:500}
+.cpop{position:absolute;top:calc(100% + 4px);left:0;z-index:30;min-width:100%;max-width:min(320px,calc(100vw - 32px));max-height:288px;overflow-y:auto;box-sizing:border-box;margin:0;padding:4px;list-style:none;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.45);animation:cpop .16s var(--ease)}
+.cpop:focus{outline:none}
+.cpop.up{top:auto;bottom:calc(100% + 4px)}
+.cpop.right{left:auto;right:0}
+.cpop li{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:32px;box-sizing:border-box;padding:6px 8px 6px 12px;border-radius:8px;font-size:13px;line-height:20px;color:var(--soft);cursor:pointer;white-space:nowrap}
+.cpop li.act{background:var(--surface-2);color:var(--fg)}
+.cpop li[aria-selected="true"]{color:var(--fg);font-weight:500}
+.cpop li svg{flex:none;width:16px;height:16px;fill:none;stroke:var(--pink);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;visibility:hidden}
+.cpop li[aria-selected="true"] svg{visibility:visible}
+@keyframes cpop{from{opacity:0;transform:translateY(-4px)}}
+.cpop.up{animation-name:cpopup}
+@keyframes cpopup{from{opacity:0;transform:translateY(4px)}}
 
 .list{display:flex;flex-direction:column;gap:12px}
 .job{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px}
@@ -106,6 +127,9 @@ select.set{border-color:var(--muted);background:var(--surface-2);font-weight:500
 .meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12px}
 .tag{display:inline-flex;align-items:center;height:24px;box-sizing:border-box;font:400 12px/16px var(--body);padding:0 8px;border-radius:8px;background:var(--surface-2);border:1px solid transparent;color:var(--muted);cursor:pointer}
 .tag:hover{color:var(--fg);border-color:var(--line)}
+/* Eksik bilgi: kesik çerçeve, dolgu yok */
+.tag.unspec{background:transparent;border:1px dashed var(--line)}
+.tag.unspec:hover{border-color:var(--muted)}
 .tag.sel{background:var(--line);border-color:var(--muted);color:var(--fg);font-weight:500}
 .tag.amber{background:var(--amber-soft);color:var(--amber)}
 .tag.stage,.tag.stage:hover{cursor:default;background:var(--blue-soft);color:var(--blue);border-color:transparent}
@@ -187,6 +211,7 @@ select.set{border-color:var(--muted);background:var(--surface-2);font-weight:500
 .fgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px 16px}
 .fgrid .full{grid-column:1/-1}
 .fld .rin{width:100%}
+.fld .csel{display:flex;width:100%}
 .addform .seg{max-width:none}
 
 /* İstatistik ve rapor */
@@ -204,7 +229,14 @@ textarea.rin{height:auto;padding:8px 12px;resize:vertical;font:14px/20px var(--b
 
 .report{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:32px;color:var(--fg)}
 .rblock{display:flex;flex-direction:column;gap:12px;min-width:0}
-.rblock h3{margin:0;font:500 13px/20px var(--body);color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:8px}
+/* Rapor bölüm başlığı: ad solda, grafik türü seçimi sağda */
+.rhd{display:flex;align-items:center;justify-content:space-between;gap:8px 12px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:8px}
+.rblock h3{margin:0;font:500 13px/20px var(--body);color:var(--muted)}
+.rblock h3:focus{outline:none}
+.vz{display:inline-flex;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.vz button{font:400 12px/16px var(--body);border:0;background:var(--bg);color:var(--muted);padding:4px 12px;cursor:pointer;transition:background-color .15s var(--ease),color .15s var(--ease)}
+.vz button:hover{color:var(--fg);background:var(--surface-2)}
+.vz button[aria-pressed="true"]{background:var(--line);color:var(--fg);font-weight:500}
 .rhead h2{font:600 24px/28px var(--display);margin:0;text-wrap:balance}
 .rmeta{font-size:12px;color:var(--muted)}
 /* Özet: dört ana rakam, altında dört ikincil satır */
@@ -249,6 +281,54 @@ textarea.rin{height:auto;padding:8px 12px;resize:vertical;font:14px/20px var(--b
 .foot,.rnote{font-size:12px;line-height:16px;color:var(--muted);margin:0}
 .two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px}
 
+/* Pasta: halka grafik, ortada toplam, yanında sayı ve yüzdeli açıklama */
+.pie{display:flex;flex-wrap:wrap;align-items:center;gap:16px 24px}
+.pie-fig{position:relative;flex:none;width:140px;height:140px}
+.pie-fig svg{display:block}
+.pie-c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+.pie-c b{font:500 24px/28px var(--mono);font-variant-numeric:tabular-nums}
+.pie-c span{font-size:12px;line-height:16px;color:var(--muted)}
+.pie-leg{flex:1 1 180px;min-width:0;list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.pie-leg li{display:grid;grid-template-columns:8px minmax(0,1fr) auto;gap:8px;align-items:center;font-size:13px;line-height:20px}
+.pie-leg li.zero{color:var(--muted)}
+.pie-leg i{width:8px;height:8px;border-radius:2px}
+.pie-leg span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pie-leg b{font:500 12px/16px var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pies{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:24px}
+.pcell h4{margin:0 0 12px;font:500 12px/16px var(--body);color:var(--muted)}
+/* Çizgi grafik: çizim alanı esner, çizgi kalınlığı sabit kalır; noktalar ve değerler HTML olarak üstüne konur */
+.lc{position:relative;height:152px;margin-top:24px;border-bottom:1px solid var(--line)}
+.lc svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.lc-pt{position:absolute;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:var(--c)}
+.lc-pt.end{width:8px;height:8px;margin:-4px 0 0 -4px;box-shadow:0 0 0 2px var(--surface)}
+.lc-pt em{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);font:500 12px/16px var(--mono);font-style:normal;color:var(--muted);white-space:nowrap}
+.lc-pt.end em{color:var(--fg);bottom:10px}
+.xl.tight{gap:0}
+
+/* Rapor bölümleri: geniş ekranda sütunun solunda yapışkan bir liste, dar ekranda raporun üstünde yapışkan bir şerit */
+.rtoc button{font:400 13px/20px var(--body);color:var(--muted);background:transparent;border:0;border-radius:8px;cursor:pointer;text-align:left;transition:background-color .15s var(--ease),color .15s var(--ease)}
+.rtoc button:hover{color:var(--fg)}
+.rtoc button[aria-current="true"]{color:var(--fg);background:var(--surface-2);font-weight:500}
+.rsec{display:flex;flex-direction:column;gap:32px;scroll-margin-top:72px}
+/* Liste ile rapor aynı kapta: geniş ekranda listenin üstü raporun üstüyle hizalı, ayar panelleri açılınca ikisi birlikte kayar */
+.rwrap{position:relative;display:flex;flex-direction:column;gap:24px}
+@media (min-width:1320px){
+  .rtoc-rail{position:absolute;top:0;bottom:0;right:calc(100% + 48px);width:168px}
+  .rtoc{position:sticky;top:max(32px,env(safe-area-inset-top,0px));display:flex;flex-direction:column;gap:2px;padding:8px;background:rgba(27,27,27,.58);-webkit-backdrop-filter:blur(26px) saturate(1.35);backdrop-filter:blur(26px) saturate(1.35);border:1px solid rgba(255,255,255,.07);border-radius:12px}
+  .rtoc .lbl{padding:4px 8px 8px}
+  .rtoc button{position:relative;min-height:32px;padding:6px 12px}
+  .rtoc button[aria-current="true"]::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:2px;border-radius:2px;background:var(--pink)}
+  .rsec{scroll-margin-top:32px}
+}
+@media (max-width:1319px){
+  .rtoc-rail{display:contents}
+  .rtoc{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;margin:-12px -16px;padding:8px 16px;background:rgba(27,27,27,.86);-webkit-backdrop-filter:blur(26px);backdrop-filter:blur(26px);border-bottom:1px solid var(--line)}
+  .rtoc::-webkit-scrollbar{display:none}
+  .rtoc .lbl{display:none}
+  .rtoc button{flex:none;height:32px;padding:0 12px;white-space:nowrap}
+}
+@media (min-width:900px) and (max-width:1319px){.rtoc{margin-inline:-28px;padding-inline:28px}}
+
 /* PDF için ekran dışı açık tema kopya */
 .pdfhost{position:absolute;top:0;left:0;width:760px;z-index:40;background:#FFFFFF;color:#1B1B1B;
   --bg:#FFFFFF;--surface:#FFFFFF;--surface-2:#F1EEEF;--line:#E0DBDD;--fg:#1B1B1B;--muted:#6B6669;--pink:#C80F55;--good:#1F8A4C;--neutral:#B9B4B6;--blue:#2F7FC1;--violet:#6D4FD6}
@@ -270,7 +350,7 @@ button:focus-visible,a:focus-visible,summary:focus-visible,textarea:focus-visibl
   .topbar .tabs button{padding:12px 8px}
   .topbar>.btn{white-space:nowrap}
   .toolbar .search{flex-basis:100%}
-  .toolbar select,.toolbar .btn{flex:1 1 0}
+  .toolbar .csel,.toolbar .btn{flex:1 1 0}
   .rbar .stepmsg{flex-basis:100%}
   .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
   .mini{grid-template-columns:minmax(0,1fr)}
@@ -359,7 +439,10 @@ button:focus-visible,a:focus-visible,summary:focus-visible,textarea:focus-visibl
         <div class="row"><select id="r-track" aria-label="Alan"></select><select id="r-source" aria-label="Kaynak"></select></div>
       </div>
     </section>
-    <div id="report"></div>
+    <div class="rwrap">
+      <div class="rtoc-rail" id="r-rail" hidden><nav class="rtoc" id="r-toc" aria-label="Rapor bölümleri"></nav></div>
+      <div id="report"></div>
+    </div>
   </div>
   <div class="busy" id="busy" hidden>PDF hazırlanıyor…</div>
 
@@ -551,7 +634,11 @@ function procHtml(j){
     </div>`:`<div><button type="button" class="btn" data-stepopen="${id}">+ Süreç adımı ekle</button></div>`}
   </section>`;
 }
-const tag=(k,v)=>v?`<button type="button" class="tag${state.fx[k]===v?" sel":""}" data-fk="${k}" data-fv="${esc(v)}" title="Bu etikete göre filtrele">${esc(v)}</button>`:"";
+/* "Belirtilmemiş" tek başına anlamsız: etiket neyin belirtilmediğini söyler, kesik çerçeveyle eksik bilgi olduğu belli olur */
+const UNSPEC=new Set(["belirtilmemiş","belirtilmemis","bilinmiyor","-","—"]);
+const isUnspec=v=>UNSPEC.has(norm(String(v??"").trim()));
+const tag=(k,v)=>{if(!v)return "";const u=isUnspec(v);
+  return `<button type="button" class="tag${u?" unspec":""}${state.fx[k]===v?" sel":""}" data-fk="${k}" data-fv="${esc(v)}" title="${u?`${SEL[k]} bilgisi yok. `:""}Bu etikete göre filtrele">${esc(u?`${SEL[k]} belirtilmemiş`:v)}</button>`;};
 
 function card(j){
   const id=esc(j._id), sc=Number(j.score??0), near=j.tier==="near", open=state.open.has(j._id);
@@ -569,7 +656,7 @@ function card(j){
       ${near?'<button type="button" class="tag amber" data-fk="tier" data-fv="near">Yakın eşleşme</button>':""}
       ${j.status==="applied"?(()=>{const s=stageStep(j);return `<span class="tag stage ${stCls(s)}" title="Şu anki aşama">${esc(s.kind==="applied"?s.label:lbl(s))}</span>`;})():""}
       ${tag("track",j.track)}${tag("mode",j.mode)}${tag("location",j.location)}
-      ${j.experience?`<span class="plain">· ${esc(j.experience)}</span>`:""}
+      ${j.experience?`<span class="plain">· ${isUnspec(j.experience)?"Deneyim belirtilmemiş":"Deneyim: "+esc(j.experience)}</span>`:""}
     </div>
     ${j.matched?`<p class="why">${esc(j.matched)}</p>`:""}
     ${hasNote(j)&&!open?`<div class="notepreview"><p>${esc(j.note)}</p><button type="button" class="nedit" data-open="${id}" aria-label="Notu düzenle">Düzenle</button></div>`:""}
@@ -768,9 +855,41 @@ function reportApps(){
     return true;
   }).map(analyze).sort((a,b)=>b.ad.localeCompare(a.ad));
 }
-const blk=(title,inner,extra="")=>`<section class="rblock ${extra}">${title?`<h3>${title}</h3>`:""}${inner}</section>`;
+const blk=(title,inner,extra="",tools="")=>`<section class="rblock ${extra}">${title?`<div class="rhd"><h3>${title}</h3>${tools}</div>`:""}${inner}</section>`;
 const frow=(l,v,N,key)=>`<div class="frow${key?" key":""}"><span>${esc(l)}</span><div class="btrack"><div class="bfill" style="width:${pct(v,N)}%"></div></div><span class="fval">${v} · %${pct(v,N)}</span></div>`;
 function grp(A,key){const m=new Map();A.forEach(a=>{const k=(typeof key==="function"?key(a):a.j[key])||"Belirtilmemiş";if(!m.has(k))m.set(k,[]);m.get(k).push(a);});return [...m].sort((x,y)=>y[1].length-x[1].length);}
+
+/* ---- Grafik yardımcıları. SVG renkleri doğrudan yazılır: PDF'e çevrilirken CSS değişkenleri çözülmez, PDF açık temada basılır. ---- */
+const PAL_D={pink:"#E0115F",blue:"#5FB4F0",amber:"#FFB343",good:"#7ED6A0",violet:"#A78BFA",neutral:"#7A7578",muted:"#9C979A",line:"#363636",surface:"#232323"};
+const PAL_L={pink:"#C80F55",blue:"#2F7FC1",amber:"#FFB343",good:"#1F8A4C",violet:"#6D4FD6",neutral:"#B9B4B6",muted:"#6B6669",line:"#E0DBDD",surface:"#FFFFFF"};
+const pal=pdf=>pdf?PAL_L:PAL_D;
+const VIZ={outcome:[["bar","Çubuk"],["pie","Pasta"]],timeline:[["bar","Sütun"],["line","Çizgi"],["cum","Kümülatif"]],breakdown:[["table","Tablo"],["pie","Pasta"]]};
+rs.viz=Object.assign({},rs.viz&&typeof rs.viz==="object"?rs.viz:{});
+for(const k in VIZ) if(!VIZ[k].some(([v])=>v===rs.viz[k])) rs.viz[k]=VIZ[k][0][0];
+const vz=(k,pdf)=>pdf?"":`<div class="vz" role="group" aria-label="Grafik türü">${VIZ[k].map(([v,l])=>`<button type="button" data-viz="${k}" data-v="${v}" aria-pressed="${rs.viz[k]===v}">${l}</button>`).join("")}</div>`;
+function donut(parts,total,center,pdf,name){
+  const P=pal(pdf),R=64,r=42,C=70,segs=parts.filter(p=>p.v>0);let a=-Math.PI/2,paths="";
+  const pt=(rad,ang)=>`${(C+rad*Math.cos(ang)).toFixed(2)} ${(C+rad*Math.sin(ang)).toFixed(2)}`;
+  if(segs.length===1) paths=`<circle cx="${C}" cy="${C}" r="${(R+r)/2}" fill="none" stroke="${segs[0].c}" stroke-width="${R-r}"/>`;
+  else segs.forEach(p=>{const d=p.v/total*Math.PI*2,b=a+d,lg=d>Math.PI?1:0;
+    paths+=`<path d="M${pt(R,a)} A${R} ${R} 0 ${lg} 1 ${pt(R,b)} L${pt(r,b)} A${r} ${r} 0 ${lg} 0 ${pt(r,a)}Z" fill="${p.c}" stroke="${P.surface}" stroke-width="2" stroke-linejoin="round"/>`;a=b;});
+  const label=`${name}: `+parts.map(p=>`${p.l} ${p.v}`).join(", ");
+  return `<div class="pie"><div class="pie-fig" role="img" aria-label="${esc(label)}"><svg viewBox="0 0 140 140" width="140" height="140" aria-hidden="true">${paths}</svg><div class="pie-c"><b>${center[0]}</b><span>${center[1]}</span></div></div>
+    <ul class="pie-leg">${parts.map(p=>`<li${p.v?"":' class="zero"'}><i style="background:${p.c}"></i><span>${esc(p.l)}</span><b>${p.v} · %${pct(p.v,total)}</b></li>`).join("")}</ul></div>`;
+}
+/* series: [{vals,c,key}]; key olan serinin altı hafif boyanır. labelAll: her noktanın değeri yazılır, yoksa yalnızca son nokta */
+function lineChart(labels,series,pdf,labelAll){
+  const P=pal(pdf),n=labels.length,mx=Math.max(1,...series.flatMap(s=>s.vals));
+  const X=i=>(i+.5)/n*100,Y=v=>(1-v/mx)*100,f=x=>x.toFixed(2);
+  const grid=[25,50,75].map(y=>`<line x1="0" x2="100" y1="${y}" y2="${y}" stroke="${P.line}" stroke-width="1" vector-effect="non-scaling-stroke"/>`).join("");
+  const lines=series.map(s=>{const pts=s.vals.map((v,i)=>`${f(X(i))},${f(Y(v))}`).join(" ");
+    const area=s.key?`<polygon points="${f(X(0))},100 ${pts} ${f(X(n-1))},100" fill="${s.c}" fill-opacity=".14"/>`:"";
+    return area+`<polyline points="${pts}" fill="none" stroke="${s.c}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`;}).join("");
+  const dots=series.flatMap(s=>s.vals.map((v,i)=>{const last=i===n-1;
+    return `<span class="lc-pt${last?" end":""}" style="left:${f(X(i))}%;top:${f(Y(v))}%;--c:${s.c}">${labelAll||last?`<em>${v}</em>`:""}</span>`;})).join("");
+  return `<div class="lc"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${grid}${lines}</svg>${dots}</div>
+    <div class="xl tight">${labels.map(l=>`<span>${l}</span>`).join("")}</div>`;
+}
 
 function secSummary(A){
   const N=A.length,resp=A.filter(a=>a.responded).length,intr=A.filter(a=>a.intr).length,off=A.filter(a=>a.off).length,rej=A.filter(a=>a.rej).length;
@@ -791,12 +910,13 @@ function secFunnel(A){
     frow("Mülakat",A.filter(a=>a.intr).length,N),frow("Teklif",A.filter(a=>a.off).length,N,true)].join("")+
     `<p class="rnote">Her aşama, o aşamaya veya daha ilerisine ulaşan başvuruları sayar. Yüzdeler toplam başvuruya göredir.</p>`);
 }
-function secOutcome(A){
+function secOutcome(A,pdf){
   const N=A.length, c={offer:0,rejected:0,withdrawn:0,active:0,none:0}; A.forEach(a=>c[a.outcome]++);
   const rejAny=A.filter(a=>a.rej).length, closed=c.offer+c.rejected+c.withdrawn;
   const rd=A.map(a=>a.rejDays).filter(v=>v!=null);
-  const OUT=[["offer","Teklif","var(--good)"],["rejected","Ret","var(--pink)"],["withdrawn","Geri çekildim","var(--muted)"],["active","Süreçte","var(--blue)"],["none","Yanıt yok","var(--line)"]];
-  const stack=`<div class="stack">${OUT.map(([k,,col])=>c[k]?`<i style="width:${c[k]*100/N}%;background:${col}"></i>`:"").join("")}</div>
+  const P=pal(pdf);
+  const OUT=[["offer","Teklif",P.good],["rejected","Ret",P.pink],["withdrawn","Geri çekildim",P.muted],["active","Süreçte",P.blue],["none","Yanıt yok",P.neutral]];
+  const stack=rs.viz.outcome==="pie"?donut(OUT.map(([k,l,col])=>({l,v:c[k],c:col})),N,[N,"başvuru"],pdf,"Başvuru sonuçları"):`<div class="stack">${OUT.map(([k,,col])=>c[k]?`<i style="width:${c[k]*100/N}%;background:${col}"></i>`:"").join("")}</div>
     <div class="legend">${OUT.map(([k,l,col])=>`<span><i style="background:${col}"></i>${l}: ${c[k]} (%${pct(c[k],N)})</span>`).join("")}</div>`;
   const at=new Map();A.filter(a=>a.rej).forEach(a=>at.set(a.rejAt,(at.get(a.rejAt)||0)+1));
   const atRows=["Doğrudan (başvurudan sonra)","Değerlendirme sonrası","Mülakat sonrası"].map(k=>`<tr><td>${k}</td><td class="n">${at.get(k)||0}</td><td class="n">%${pct(at.get(k)||0,rejAny)}</td></tr>`).join("");
@@ -811,27 +931,45 @@ function secOutcome(A){
     <div class="two">
       <div class="tbl"><table><colgroup><col style="width:56%"><col style="width:22%"><col style="width:22%"></colgroup><thead><tr><th>Ret aşaması</th><th class="n">Ret</th><th class="n">Pay</th></tr></thead><tbody>${atRows}</tbody></table></div>
       <div class="tbl"><table><colgroup><col style="width:40%"><col style="width:20%"><col style="width:18%"><col style="width:22%"></colgroup><thead><tr><th>Alan</th><th class="n">Başvuru</th><th class="n">Ret</th><th class="n">Oran</th></tr></thead><tbody>${byTrack}</tbody></table></div>
-    </div>`);
+    </div>`,"",vz("outcome",pdf));
 }
-function secBreakdown(A){
+function secBreakdown(A,pdf){
+  if(rs.viz.breakdown==="pie"){
+    const P=pal(pdf),CAT=[P.pink,P.blue,P.amber,P.good,P.violet];
+    const parts=key=>{const g=grp(A,key),top=g.slice(0,5).map(([k,arr],i)=>({l:k,v:arr.length,c:CAT[i]})),rest=g.slice(5).reduce((s,[,arr])=>s+arr.length,0);
+      if(rest)top.push({l:"Diğer",v:rest,c:P.neutral});return top;};
+    return blk("Alan ve kaynak kırılımı",`<div class="pies">${[["İlanı bulan",a=>a.origin],["Alan","track"],["Kaynak","source"]].map(([t,k])=>`<div class="pcell"><h4>${t}</h4>${donut(parts(k),A.length,[A.length,"başvuru"],pdf,t+" dağılımı")}</div>`).join("")}</div>
+      <p class="rnote">Pastalar başvurularının dağılımını gösterir; beşten fazla dilim "Diğer" altında toplanır.</p>`,"",vz("breakdown",pdf));
+  }
   const tbl=(key,title)=>`<div class="tbl wide"><table><colgroup><col style="width:32%"><col style="width:13%"><col style="width:14%"><col style="width:15%"><col style="width:13%"><col style="width:13%"></colgroup>
     <thead><tr><th>${title}</th><th class="n">Başvuru</th><th class="n">Yanıt</th><th class="n">Mülakat</th><th class="n">Ret</th><th class="n">Teklif</th></tr></thead><tbody>
     ${grp(A,key).map(([k,arr])=>{const n=arr.length,f=p=>arr.filter(p).length;return `<tr><td>${esc(k)}</td><td class="n">${n}</td><td class="n">%${pct(f(a=>a.responded),n)}</td><td class="n">%${pct(f(a=>a.intr),n)}</td><td class="n">%${pct(f(a=>a.rej),n)}</td><td class="n">${f(a=>a.off)}</td></tr>`;}).join("")}
     </tbody></table></div>`;
   return blk("Alan ve kaynak kırılımı",tbl(a=>a.origin,"İlanı bulan")+tbl("track","Alan")+tbl("source","Kaynak")+
-    `<p class="rnote">"İlanı bulan" tablosu, günlük taramanın önerdiği ilanlarla kendi eklediğin başvuruların nasıl döndüğünü karşılaştırır.</p>`);
+    `<p class="rnote">"İlanı bulan" tablosu, günlük taramanın önerdiği ilanlarla kendi eklediğin başvuruların nasıl döndüğünü karşılaştırır.</p>`,"",vz("breakdown",pdf));
 }
-function secTimeline(A){
+function secTimeline(A,pdf){
+  const P=pal(pdf),mode=rs.viz.timeline,T="Zaman içinde başvurular",tools=vz("timeline",pdf);
   const wk=d=>{const x=new Date(d.slice(0,10)+"T12:00:00");x.setDate(x.getDate()-((x.getDay()+6)%7));return isoLocal(x);};
-  const m=new Map();A.filter(a=>a.ad).forEach(a=>{const w=wk(a.ad);m.set(w,(m.get(w)||0)+1);});
-  if(!m.size) return blk("Zaman içinde başvurular",`<p class="rnote">Tarih bilgisi olan başvuru yok.</p>`);
-  const keys=[...m.keys()].sort();let cur=new Date(keys[0]+"T12:00:00");const end=keys[keys.length-1];const weeks=[];
+  const m=new Map(),rm=new Map();
+  A.filter(a=>a.ad).forEach(a=>{const w=wk(a.ad);m.set(w,(m.get(w)||0)+1);
+    const f=a.steps.find(x=>x.date);if(f){const w2=wk(f.date);rm.set(w2,(rm.get(w2)||0)+1);}});
+  if(!m.size) return blk(T,`<p class="rnote">Tarih bilgisi olan başvuru yok.</p>`,"",tools);
+  const keys=[...m.keys(),...(mode==="cum"?rm.keys():[])].sort();let cur=new Date(keys[0]+"T12:00:00");const end=keys[keys.length-1];const weeks=[];
   while(isoLocal(cur)<=end){weeks.push(isoLocal(cur));cur.setDate(cur.getDate()+7);}
-  const W=weeks.slice(-16), mx=Math.max(...W.map(w=>m.get(w)||0),1);
-  return blk("Zaman içinde başvurular",`
-    <div class="cols">${W.map((w,i)=>{const v=m.get(w)||0;return `<div class="col${i===W.length-1?" key":""}"><span class="v">${v||""}</span><div class="b" style="height:${Math.round(v/mx*120)}px"></div></div>`;}).join("")}</div>
-    <div class="xl">${W.map(w=>`<span>${trDate(w).slice(0,5)}</span>`).join("")}</div>
-    <p class="rnote">Haftalık başvuru sayısı; etiket haftanın pazartesisidir${weeks.length>16?" (son 16 hafta)":""}.</p>`);
+  const W=weeks.slice(-16),labels=W.map(w=>trDate(w).slice(0,5)),more=weeks.length>16?" (son 16 hafta)":"";
+  if(mode==="cum"){
+    let ca=0,cr=0;const accA=[],accR=[];weeks.forEach(w=>{ca+=m.get(w)||0;cr+=rm.get(w)||0;accA.push(ca);accR.push(cr);});
+    return blk(T,lineChart(labels,[{vals:accA.slice(-16),c:P.neutral},{vals:accR.slice(-16),c:P.pink,key:true}],pdf,false)+`
+      <div class="legend"><span><i style="background:${P.neutral}"></i>Toplam başvuru</span><span><i style="background:${P.pink}"></i>Yanıt alınan başvuru</span></div>
+      <p class="rnote">Her haftanın sonundaki toplamlar${more}. Yanıt tarihi, başvuruya eklenen ilk süreç adımının tarihidir.</p>`,"",tools);
+  }
+  const vals=W.map(w=>m.get(w)||0),note=`<p class="rnote">Haftalık başvuru sayısı; etiket haftanın pazartesisidir${more}.</p>`;
+  if(mode==="line") return blk(T,lineChart(labels,[{vals,c:P.pink,key:true}],pdf,true)+note,"",tools);
+  const mx=Math.max(...vals,1);
+  return blk(T,`
+    <div class="cols">${vals.map((v,i)=>`<div class="col${i===W.length-1?" key":""}"><span class="v">${v||""}</span><div class="b" style="height:${Math.round(v/mx*120)}px"></div></div>`).join("")}</div>
+    <div class="xl">${labels.map(l=>`<span>${l}</span>`).join("")}</div>${note}`,"",tools);
 }
 function secList(A,pdf){
   const head=`<colgroup><col style="width:22%"><col style="width:31%"><col style="width:11%"><col style="width:12%"><col style="width:13%"><col style="width:11%"></colgroup>
@@ -850,8 +988,8 @@ function reportHtml(pdf){
   const head=blk("",`<h2>${esc(rs.title||"Başvuru Raporu")}</h2><div class="rmeta">Oluşturulma: ${trDate(isoLocal(new Date()))} · Dönem: ${esc(periodText())}${filt?" · "+esc(filt):""} · ${A.length} başvuru</div>`,"rhead");
   if(!secs.length) return `<div class="report">${head}${blk("",`<p class="rnote">Rapora en az bir bölüm ekle.</p>`)}</div>`;
   if(!A.length) return `<div class="report">${head}${blk("",`<p class="rnote">Bu dönem ve filtrelerle eşleşen başvuru yok. "Başvurdum" olarak işaretlediğin ilanlar burada sayılır.</p>`)}</div>`;
-  const F={summary:secSummary,funnel:secFunnel,outcome:secOutcome,breakdown:secBreakdown,timeline:secTimeline,list:a=>secList(a,pdf)};
-  return `<div class="report">${head}${secs.map(k=>F[k](A)).join("")}${blk("",`<p class="foot">Başvuru tarihi, ilanı "Başvurdum" olarak işaretlediğin gündür. Süreç verileri kartlara eklediğin adımlardan hesaplanır; adım eklenmemiş başvurular "yanıt yok" sayılır.</p>`)}</div>`;
+  const F={summary:a=>secSummary(a),funnel:a=>secFunnel(a),outcome:a=>secOutcome(a,pdf),breakdown:a=>secBreakdown(a,pdf),timeline:a=>secTimeline(a,pdf),list:a=>secList(a,pdf)};
+  return `<div class="report">${head}${secs.map(k=>`<div class="rsec" id="rs-${k}">${F[k](A)}</div>`).join("")}${blk("",`<p class="foot">Başvuru tarihi, ilanı "Başvurdum" olarak işaretlediğin gündür. Süreç verileri kartlara eklediğin adımlardan hesaplanır; adım eklenmemiş başvurular "yanıt yok" sayılır.</p>`)}</div>`;
 }
 function fillRSel(id,key,label){
   const el=$(id), vals=[...new Set(state.jobs.filter(j=>j.status==="applied").map(j=>j[key]).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"tr"));
@@ -875,6 +1013,7 @@ function renderStats(){
   $("report").innerHTML=reportHtml(false);
   $("r-pdf").disabled=!rs.secs.length||!reportApps().length;
   if($("r-pdf").disabled) $("r-dl").hidden=true;
+  renderToc();
 }
 function setView(v){
   state.view=v;$("v-stats").hidden=v!=="stats";$("v-list").hidden=v==="stats";syncSeg("seg-view",v);
@@ -943,6 +1082,9 @@ $("r-pdf").addEventListener("click",()=>{$("r-msg").textContent="";showDl($("r-d
 $("r-go").addEventListener("click",exportPdf);
 $("r-cancel").addEventListener("click",()=>{showDl(false);$("r-pdf").focus();});
 $("r-title").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();exportPdf();}else if(e.key==="Escape"){showDl(false);$("r-pdf").focus();}});
+/* Grafik türü seçimi: tercih tarayıcıda saklanır, PDF de seçilen türle basılır */
+$("report").addEventListener("click",e=>{const b=e.target.closest("button[data-viz]");if(!b)return;const k=b.dataset.viz,v=b.dataset.v;
+  if(rs.viz[k]===v)return;rs.viz[k]=v;saveRs();renderStats();document.querySelector(`#report button[data-viz="${k}"][data-v="${v}"]`)?.focus({preventScroll:true});});
 $("r-toggle").addEventListener("click",()=>{const on=$("r-panel").hidden;$("r-panel").hidden=!on;$("r-toggle").setAttribute("aria-expanded",String(on));});
 
 /* ===================== Elle başvuru ekleme ===================== */
@@ -1189,6 +1331,95 @@ gl_FragColor=vec4(c*l,l);}`
   start();
   }catch{off();}
 })();
+
+/* ===================== Rapor bölümleri gezinmesi ===================== */
+const wideToc=matchMedia("(min-width:1320px)");
+function renderToc(){
+  const secs=[...$("report").querySelectorAll(".rsec")];
+  $("r-rail").hidden=!secs.length;
+  $("r-toc").innerHTML=`<span class="lbl">Bölümler</span>`+secs.map(s=>`<button type="button" data-go="${s.id}">${esc(SECS.find(x=>"rs-"+x.k===s.id)?.l||"")}</button>`).join("");
+  spyToc(true);
+}
+let tocCur="";
+function spyToc(force){
+  if(state.view!=="stats"||$("r-rail").hidden)return;
+  const secs=[...$("report").querySelectorAll(".rsec")];if(!secs.length)return;
+  const off=wideToc.matches?64:96;let cur=secs[0].id;
+  for(const s of secs) if(s.getBoundingClientRect().top-off<=0) cur=s.id;
+  if(innerHeight+scrollY>=document.documentElement.scrollHeight-4) cur=secs[secs.length-1].id;
+  if(cur===tocCur&&!force)return;tocCur=cur;
+  $("r-toc").querySelectorAll("button[data-go]").forEach(b=>{const on=b.dataset.go===cur;b.setAttribute("aria-current",String(on));
+    if(on&&!wideToc.matches){const t=$("r-toc"),l=b.offsetLeft-16,r=l+b.offsetWidth+32;if(l<t.scrollLeft||r>t.scrollLeft+t.clientWidth)t.scrollLeft=l;}});
+}
+let spyRaf=0;
+window.addEventListener("scroll",()=>{if(!spyRaf)spyRaf=requestAnimationFrame(()=>{spyRaf=0;spyToc();});},{passive:true});
+wideToc.addEventListener?.("change",()=>spyToc(true));
+$("r-toc").addEventListener("click",e=>{const b=e.target.closest("button[data-go]");if(!b)return;const s=$(b.dataset.go);if(!s)return;
+  s.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"});
+  const h=s.querySelector("h3");if(h){h.tabIndex=-1;h.focus({preventScroll:true});}});
+
+/* ===================== Açılır listeler ===================== */
+/* Yerel select gizlenir ama değerin ve change olayının sahibi olarak kalır; kodun value / selectedIndex atamaları düğmeye yansır. */
+const CHEV='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+const CHECK='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+const SELP={value:Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,"value"),selectedIndex:Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,"selectedIndex")};
+let openSel=null;
+function enhanceSelect(sel){
+  const wrap=document.createElement("span"),btn=document.createElement("button");
+  wrap.className="csel";btn.type="button";btn.id=sel.id+"-btn";btn.setAttribute("aria-haspopup","listbox");btn.setAttribute("aria-expanded","false");
+  btn.innerHTML=`<span></span>${CHEV}`;
+  sel.parentNode.insertBefore(wrap,sel);wrap.append(btn,sel);sel.hidden=true;sel.tabIndex=-1;
+  const name=sel.getAttribute("aria-label")||"";
+  const ui={sel,wrap,btn,pop:null,act:-1};
+  ui.sync=()=>{const o=sel.options[sel.selectedIndex],t=o?o.textContent:"",shown=name&&!t.startsWith(name)?`${name}: ${t}`:t;
+    btn.firstChild.textContent=shown;btn.setAttribute("aria-label",shown);wrap.classList.toggle("set",sel.classList.contains("set"));};
+  for(const k in SELP){const d=SELP[k];Object.defineProperty(sel,k,{configurable:true,get(){return d.get.call(this);},set(v){d.set.call(this,v);ui.sync();}});}
+  new MutationObserver(()=>{ui.sync();if(openSel===ui)closeSel(false);}).observe(sel,{childList:true,subtree:true,attributes:true,attributeFilter:["class"]});
+  btn.addEventListener("click",()=>openSel===ui?closeSel(true):openPop(ui));
+  btn.addEventListener("keydown",e=>{if(openSel!==ui&&["ArrowDown","ArrowUp","Enter"," "].includes(e.key)){e.preventDefault();openPop(ui);}});
+  ui.sync();
+}
+function setAct(ui,i,keep){
+  const lis=ui.pop.children;if(ui.act>=0&&lis[ui.act])lis[ui.act].classList.remove("act");
+  ui.act=i;const li=lis[i];if(!li)return;li.classList.add("act");ui.pop.setAttribute("aria-activedescendant",li.id);
+  if(!keep){const p=ui.pop;if(li.offsetTop<p.scrollTop)p.scrollTop=li.offsetTop-4;else if(li.offsetTop+li.offsetHeight>p.scrollTop+p.clientHeight)p.scrollTop=li.offsetTop+li.offsetHeight-p.clientHeight+4;}
+}
+function openPop(ui){
+  closeSel(false);
+  const {sel,btn,wrap}=ui,pop=document.createElement("ul");
+  pop.className="cpop";pop.id=sel.id+"-list";pop.tabIndex=-1;pop.setAttribute("role","listbox");pop.setAttribute("aria-label",sel.getAttribute("aria-label")||btn.textContent);
+  pop.innerHTML=[...sel.options].map((o,i)=>`<li role="option" id="${sel.id}-o${i}" data-i="${i}" aria-selected="${i===sel.selectedIndex}"><span>${esc(o.textContent)}</span>${CHECK}</li>`).join("");
+  wrap.append(pop);ui.pop=pop;openSel=ui;btn.setAttribute("aria-expanded","true");btn.setAttribute("aria-controls",pop.id);
+  const r=btn.getBoundingClientRect();
+  pop.classList.toggle("up",r.bottom+pop.offsetHeight+8>innerHeight&&r.top>pop.offsetHeight+8);
+  pop.classList.toggle("right",r.left+pop.offsetWidth>document.documentElement.clientWidth-16);
+  setAct(ui,Math.max(0,sel.selectedIndex));
+  pop.addEventListener("click",e=>{const li=e.target.closest("li[data-i]");if(li)pick(ui,+li.dataset.i);});
+  pop.addEventListener("mousemove",e=>{const li=e.target.closest("li[data-i]");if(li&&+li.dataset.i!==ui.act)setAct(ui,+li.dataset.i,true);});
+  pop.addEventListener("keydown",e=>popKey(ui,e));
+  pop.focus({preventScroll:true});
+}
+function popKey(ui,e){
+  const n=ui.sel.options.length;
+  if(e.key==="ArrowDown"){e.preventDefault();setAct(ui,Math.min(n-1,ui.act+1));}
+  else if(e.key==="ArrowUp"){e.preventDefault();setAct(ui,Math.max(0,ui.act-1));}
+  else if(e.key==="Home"||e.key==="PageUp"){e.preventDefault();setAct(ui,0);}
+  else if(e.key==="End"||e.key==="PageDown"){e.preventDefault();setAct(ui,n-1);}
+  else if(e.key==="Enter"||e.key===" "){e.preventDefault();pick(ui,ui.act);}
+  else if(e.key==="Escape"){e.preventDefault();closeSel(true);}
+  else if(e.key==="Tab"){closeSel(true);}
+  else if(e.key.length===1&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
+    const ch=norm(e.key),o=[...ui.sel.options];
+    for(let k=1;k<=n;k++){const i=(ui.act+k)%n;if(norm(o[i].textContent.replace(/^[^:]*:\s*/,"")).startsWith(ch)){setAct(ui,i);break;}}}
+}
+function pick(ui,i){const changed=i!==ui.sel.selectedIndex;ui.sel.selectedIndex=i;closeSel(true);if(changed)ui.sel.dispatchEvent(new Event("change",{bubbles:true}));}
+function closeSel(focusBtn){
+  if(!openSel)return;const ui=openSel;openSel=null;ui.pop?.remove();ui.pop=null;ui.act=-1;
+  ui.btn.setAttribute("aria-expanded","false");ui.btn.removeAttribute("aria-controls");if(focusBtn)ui.btn.focus({preventScroll:true});
+}
+document.addEventListener("pointerdown",e=>{if(openSel&&!openSel.wrap.contains(e.target))closeSel(false);},true);
+window.addEventListener("resize",()=>closeSel(false));
+document.querySelectorAll("select").forEach(enhanceSelect);
 
 state.view=viewFromHash();
 setView(state.view);
