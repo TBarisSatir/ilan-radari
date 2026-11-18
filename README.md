@@ -2,12 +2,12 @@
 
 Günlük taramayla bulunan iş ilanlarını tek sayfada toplayan, başvuru sürecini takip eden ve başvuru istatistiklerini raporlayan kişisel bir pano. Sayfa bir [claude.ai](https://claude.ai) artifact'i olarak çalışır.
 
-<!-- EKRAN GÖRÜNTÜSÜ: ana görünüm (ilan listesi)
-     Dosyayı docs/screenshots/ altına koyup aşağıdaki satırın yorumunu kaldır. -->
-<!-- ![İlan listesi](docs/screenshots/ilanlar.png) -->
+![İlan Radarı panosu](docs/screenshots/pano.png)
 
 ## Özellikler
 
+- **Pano:** Solda ilan paneli; sağda istatistik önizlemesi ve slayt alanı (öne çıkanlar, favoriler, ilerleyen başvurular, yanıt bekleyenler). Slayttaki bir ilana dokununca listede o karta gidilir.
+- **Varsayılan görünüm:** Son taramada bulunan yeni ilanlar. "Son 7 gün" ve "Tüm zamanlar" ile genişletilir. Liste boşsa altında başvurulmamış favoriler, onlar da yoksa ilerleyen başvurular gösterilir.
 - **İlan listesi:** Her ilan eşleşme puanı, alan, çalışma şekli, lokasyon ve neden eşleştiğini anlatan kısa bir açıklamayla gelir.
 - **Durum sekmeleri:** Yeni, Başvurdum, İlgilenmiyorum ve Tümü. "Başvurdum" veya "İlgilenmiyorum" olarak işaretlenen ilan bir daha önerilmez.
 - **Arama, sıralama ve filtreler:** Şirket, pozisyon veya not içinde arama; tarihe ya da puana göre sıralama; favori, not, alan, çalışma şekli, lokasyon, kaynak ve eşleşme düzeyine göre filtreleme.
@@ -15,19 +15,23 @@ Günlük taramayla bulunan iş ilanlarını tek sayfada toplayan, başvuru süre
 - **Süreç takibi:** Başvurulan ilanlara İK ön görüşme, online test, teknik mülakat, teklif, olumsuz sonuç gibi adımlar tarihleriyle eklenir.
 - **Elle başvuru ekleme:** Taramanın bulmadığı bir ilana yapılan başvuru elle kaydedilebilir.
 - **İstatistik ve rapor:** Özet, başvuru hunisi, ret ve sonuç oranları, alan ve kaynak kırılımı, haftalık başvuru grafiği ve başvuru listesi. Rapor döneme, alana ve kaynağa göre süzülür ve PDF olarak indirilir.
-- **Akışkan arka plan:** Başlığın arkasında imleci izleyen, boşta kendi kendine gezinen bir WebGL akışkan simülasyonu.
+- **Akışkan arka plan:** Sayfanın tamamının arkasında imleci izleyen, boşta kendi kendine gezinen bir WebGL akışkan simülasyonu; pembe akışın kenarlarında hafif turkuaz vurgular.
 
 ## Ekran görüntüleri
 
-<img width="1919" height="1029" alt="image" src="https://github.com/user-attachments/assets/570f315a-816c-4c2c-9b97-e6caf01357c4" />
+Görüntüler uydurma örnek veriyle alındı; gerçek başvuru verisi içermez.
 
+**Başvurular ve süreç takibi**
 
-<img width="1919" height="1029" alt="image" src="https://github.com/user-attachments/assets/355ddda5-f160-4232-a015-f90b67a6a94e" />
+![Başvurdum sekmesi ve süreç adımları](docs/screenshots/basvurular.png)
 
+**Detaylı istatistik**
 
-<img width="1919" height="1029" alt="image" src="https://github.com/user-attachments/assets/e40daa83-1938-4c37-b491-41932e2db928" />
+![İstatistik ve rapor](docs/screenshots/istatistik.png)
 
+**Telefon**
 
+<img src="docs/screenshots/mobil.png" alt="Telefonda pano" width="320">
 
 ## Nasıl çalışır
 
