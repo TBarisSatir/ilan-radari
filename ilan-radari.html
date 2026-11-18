@@ -217,6 +217,11 @@ select.set{border-color:var(--muted);background:var(--surface-2);font-weight:500
 .scope button[aria-pressed="true"]{background:var(--line);color:var(--fg);font-weight:500}
 .scope small{font:500 12px/16px var(--mono);color:var(--muted);margin-left:4px}
 .empty .btn{margin-top:12px}
+/* Boş ana liste yedeği: başlık ve kartlar listenin akışında */
+.fb{display:flex;flex-direction:column;gap:12px;margin-top:12px}
+.fb-hd{display:flex;flex-direction:column;gap:4px}
+.fb-hd h2{margin:0;font:600 16px/24px var(--display);display:flex;align-items:center;gap:8px}
+.fb-hd p{margin:0;font-size:13px;color:var(--muted)}
 .job{scroll-margin-top:24px}
 .job:focus{outline:none}
 .job.flash{animation:flash 1.6s var(--ease)}
@@ -704,6 +709,10 @@ function inScope(j){
   return true;
 }
 const SCOPE_EMPTY={run:"Son taramada",week:"Son 7 günde"};
+/* Başvurulmamış favoriler ve süreci ilerleyen başvurular: boş ana liste yedeği ile slayt alanı aynı tanımı kullanır */
+const favOpen=()=>state.jobs.filter(j=>j.fav&&(j.status||"new")==="new").sort((a,b)=>(b.favDate||"").localeCompare(a.favDate||"")||(b.score||0)-(a.score||0));
+const progressing=()=>state.jobs.filter(j=>j.status==="applied"&&hasSteps(j)&&!isClosed(j)&&stageStep(j).kind!=="withdrawn")
+  .sort((a,b)=>(stageStep(b).date||"").localeCompare(stageStep(a).date||""));
 
 function passFx(j){
   const fx=state.fx;
@@ -815,7 +824,7 @@ function render(force){
   const widen=state.scope!=="all"&&state.jobs.length?`<div><button type="button" class="btn" data-scope="all">Tüm zamanları göster</button></div>`:"";
   $("list").innerHTML=rows.length?rows.map(card).join(""):
     `<div class="empty">${inTab.length?"Bu filtrelere uyan ilan yok.":!state.jobs.length?"Henüz ilan yok. Günlük tarama bulduğu ilanları buraya ekler.":
-      state.scope!=="all"?`${SCOPE_EMPTY[state.scope]} bu sekmede ilan yok.${widen}`:"Bu sekmede ilan yok."}</div>`;
+      state.scope!=="all"?`${SCOPE_EMPTY[state.scope]} bu sekmede ilan yok.${widen}`:"Bu sekmede ilan yok."}</div>`+fallbackHtml(rows.length);
   const active=Object.values(state.fx).some(Boolean);
   $("fcount").textContent=`${rows.length} ilan${active?` (${inTab.length} içinden)`:""}`;
   $("f-clear").hidden=!active;
@@ -833,6 +842,15 @@ function render(force){
     <span>Bekleyen <b>${pend}</b></span>`;
   renderAside();
   if(state.view==="stats") renderStats();
+}
+
+/* Ana sayfa (Yeni sekmesi, filtre yok) boş kalınca boş kutunun altında önce başvurulmamış favoriler, onlar da yoksa süreci ilerleyen başvurular listelenir */
+function fallbackHtml(n){
+  if(n||state.status!=="new"||Object.values(state.fx).some(Boolean)||!state.jobs.length) return "";
+  const fav=favOpen(),g=fav.length?{t:"Başvurmadığın favoriler",d:"Favoriye eklediğin, henüz başvurmadığın ilanlar",a:fav}
+    :{t:"İlerleyen başvurular",d:"Süreç adımı eklenmiş, kapanmamış başvurular",a:progressing()};
+  if(!g.a.length) return "";
+  return `<section class="fb" aria-label="${esc(g.t)}"><div class="fb-hd"><h2>${esc(g.t)}<span class="badge">${g.a.length}</span></h2><p>${esc(g.d)}</p></div>${g.a.map(card).join("")}</section>`;
 }
 
 async function saveNote(id){
@@ -1249,8 +1267,7 @@ const SLIDES=[
     get:()=>state.jobs.filter(j=>j.fav&&j.status!=="skip").sort((a,b)=>(b.favDate||"").localeCompare(a.favDate||"")||(b.score||0)-(a.score||0)),
     val:j=>j.status==="applied"?[lbl(stageStep(j)).replace(/^Başvuru yapıldı$/,"Başvuruldu"),"txt"]:j.manual?["Elle","txt"]:[Number(j.score||0).toFixed(1),j.tier==="near"?"near":""]},
   {k:"prog",t:"İlerleyen başvurular",d:"Süreç adımı eklenmiş, kapanmamış başvurular",
-    get:()=>state.jobs.filter(j=>j.status==="applied"&&hasSteps(j)&&!isClosed(j)&&stageStep(j).kind!=="withdrawn")
-      .sort((a,b)=>(stageStep(b).date||"").localeCompare(stageStep(a).date||"")),
+    get:progressing,
     val:j=>{const s=stageStep(j);return [lbl(s),"txt "+(stCls(s)==="good"?"good":"act")];}},
   {k:"wait",t:"Yanıt bekleyenler",d:"14 günden uzun süredir adım eklenmemiş başvurular",
     get:()=>state.jobs.filter(j=>j.status==="applied"&&!hasSteps(j)&&appliedDate(j)&&appliedDate(j)<=daysAgo(14))
