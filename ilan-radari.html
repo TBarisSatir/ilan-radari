@@ -1445,7 +1445,12 @@ $("m-save").addEventListener("click",async()=>{
   const small=matchMedia("(max-width: 991px)").matches;
   /* bounce: pencere kenarları duvar gibi davranır, akış kenara çarpınca geri seker.
      false yaparsan eski davranış (akış kenardan dışarı akıp söner) aynen geri gelir; duvar geçişleri hiç çalışmaz. */
-  const C={force:20,cursor:small?40:160,visc:30,itV:small?12:16,itP:8,dt:.014,res:small?.3:.4,autoSpeed:.5,autoGain:2.2,takeover:250,resume:500,ramp:500,bounce:true};
+  /* Hız dengesi (sürüm 40):
+     force: fare itme gücü (20 → 26). accel: hızlı fare hareketine ek güç; imleç bir karede ne kadar hızlı giderse itme o kadar katlanır, en fazla 1+accelMax kat.
+     damp: her 1/60 saniyede hızın korunan oranı (sürtünme). 1 = hiç sönmez (eski davranış), 0.985 ≈ yarı ömür 0,75 sn.
+     idleForce / autoSpeed / autoGain: fare dururken kendi kendine gezinen sürücünün gücü; düşürüldü ki akış boşta belirgin yavaşlasın.
+     Eski değerler: force 20, accel 0, damp 1, idleForce .4, autoSpeed .5, autoGain 2.2. */
+  const C={force:26,accel:28,accelMax:2,damp:.985,idleForce:.18,cursor:small?40:160,visc:30,itV:small?12:16,itP:8,dt:.014,res:small?.3:.4,autoSpeed:.32,autoGain:1.2,takeover:250,resume:500,ramp:500,bounce:true};
   const PAL=[[224,17,95],[224,17,95],[255,72,136]].map(c=>c.map(x=>x/255));
   /* Turkuaz vurgu: yalnızca arka planda, akışın belirli bir yöne aktığı orta hızlı damarlarda hafifçe belirir */
   const TQ=[64,224,208].map(x=>x/255);
@@ -1455,12 +1460,12 @@ $("m-save").addEventListener("click",async()=>{
   const H="precision highp float;varying vec2 uv;";
   const FS={
     /* BFECC adveksiyon: ileri-geri izleyip hatayı düzeltir, akış daha az bulanır */
-    adv:H+`uniform sampler2D velocity;uniform float dt;uniform vec2 fboSize;
+    adv:H+`uniform sampler2D velocity;uniform float dt,damp;uniform vec2 fboSize;
 void main(){vec2 r=max(fboSize.x,fboSize.y)/fboSize;
 vec2 a=uv-texture2D(velocity,uv).xy*dt*r;
 vec2 b=a+texture2D(velocity,a).xy*dt*r;
 vec2 c=uv-(b-uv)*.5;
-gl_FragColor=vec4(texture2D(velocity,c-texture2D(velocity,c).xy*dt*r).xy,0.,0.);}`,
+gl_FragColor=vec4(texture2D(velocity,c-texture2D(velocity,c).xy*dt*r).xy*damp,0.,0.);}`,
     /* Duvar: kenardaki hücre içerideki komşusunun hızını alır, duvara dik bileşeni sıfırlanır (akış duvardan geçemez,
        basınç onu geri ve kenar boyunca iter). Bileşeni ters çevirmek her adımda işaret değiştirip kenarda titreşim yapıyordu. */
     bnd:H+`uniform sampler2D velocity;uniform vec2 px;
@@ -1579,14 +1584,18 @@ gl_FragColor=vec4(mix(c,tq,w)*al,al);}`
     const d=[coords[0]-old[0],coords[1]-old[1]];old=coords.slice();
     if(first){first=false;return [0,0];}
     if(autoOn&&!tk){d[0]*=C.autoGain;d[1]*=C.autoGain;}
+    else{const k=1+Math.min(Math.hypot(d[0],d[1])*C.accel,C.accelMax);d[0]*=k;d[1]*=k;}
     return d;
   }
+  let lastStep=0;
   function step(now){
     const active=now-lastUser<2000;
     driveAuto(now);const d=pointerDelta(now);
-    const px=[1/fw,1/fh],size=[fw,fh],mf=C.force*(active?1:.4),itV=active?C.itV:Math.min(8,C.itV),itP=C.itP;
-    if(C.bounce){pass(P.adv,F.tmp,{velocity:F.vel0,dt:C.dt,fboSize:size});pass(P.bnd,F.vel1,{velocity:F.tmp,px});}
-    else pass(P.adv,F.vel1,{velocity:F.vel0,dt:C.dt,fboSize:size});
+    /* Sönüm gerçek geçen süreye göre: boşta 30 fps'e düşülse de saniyedeki yavaşlama aynı kalır */
+    const damp=Math.pow(C.damp,Math.min(now-(lastStep||now-16.7),100)/16.7);lastStep=now;
+    const px=[1/fw,1/fh],size=[fw,fh],mf=C.force*(active?1:C.idleForce),itV=active?C.itV:Math.min(8,C.itV),itP=C.itP;
+    if(C.bounce){pass(P.adv,F.tmp,{velocity:F.vel0,dt:C.dt,fboSize:size,damp});pass(P.bnd,F.vel1,{velocity:F.tmp,px});}
+    else pass(P.adv,F.vel1,{velocity:F.vel0,dt:C.dt,fboSize:size,damp});
     const cur=Math.min(C.cursor,.6*Math.min(fw,fh)),rx=cur*px[0],ry=cur*px[1];
     const cx=Math.min(Math.max(coords[0],-1+rx+2*px[0]),1-rx-2*px[0]),cy=Math.min(Math.max(coords[1],-1+ry+2*px[1]),1-ry-2*px[1]);
     gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);
