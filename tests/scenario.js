@@ -11,19 +11,35 @@
     for(const el of document.querySelectorAll("html,body,body *")){
       /* Görüntülenmeyen öğeler (gizli kapların içi) atlanır: görünüme etkileri yok, göründükleri senaryolarda zaten kaydedilirler */
       if(el.id==="__out"||el.closest("script,style,link,meta,title")||!el.getClientRects().length)continue;
-      const key=el.tagName.toLowerCase()+(el.id?"#"+el.id:"")+(typeof el.className==="string"&&el.className?"."+el.className.trim().split(/\s+/).join("."):"");
+      const cls=typeof el.className==="string"?el.className.trim().split(/\s+/).filter(c=>c&&!/^__[hfa]$/.test(c)):[];
+      const key=el.tagName.toLowerCase()+(el.id?"#"+el.id:"")+(cls.length?"."+cls.join("."):"");
       const cs=getComputedStyle(el),b=el.getBoundingClientRect();
       res.push(key+" @"+[b.x,b.y,b.width,b.height].map(r1).join(",")+" | "+PROPS.map(p=>cs.getPropertyValue(p)).join("|"));
       for(const ps of ["::before","::after"]){const c=getComputedStyle(el,ps);if(c.content&&c.content!=="none"&&c.content!=="normal")res.push(key+ps+" | "+PROPS.map(p=>c.getPropertyValue(p)).join("|"));}
     }
     return res;};
+  /* :hover, :focus-visible ve :active kuralları da karşılaştırılsın: her birinin yanına sözde sınıfı bir sınıfla
+     (.__h, .__f, .__a; özgüllük aynı) değiştirilmiş ikizi eklenir. Seçili senaryolarda sınıf her öğeye takılıp stiller
+     ayrıca kaydedilir ("her şey üzerinde" durumu gerçekçi değil ama iki sürümde aynı kuralları aynı sırayla sınar). */
+  const PSEUDO=[[":hover","__h"],[":focus-visible","__f"],[":active","__a"]];
+  const twin=list=>{for(let i=list.cssRules.length-1;i>=0;i--){const r=list.cssRules[i];
+    if(r.selectorText==null){if(r.cssRules)twin(r);continue;}
+    for(const [p,c] of PSEUDO) if(r.selectorText.includes(p)){const s=r.selectorText.split(p).join("."+c);list.insertRule(s+r.cssText.slice(r.selectorText.length),i+1);}}};
+  const twinAll=()=>{for(const sh of document.styleSheets){try{twin(sh);}catch{}}};
+  const STATE_AT=new Set(["00-initial","03-ftoggle","04-csel-open","06-kopt-other","07-fb-toggle","08-go","10-stats","12-viz-outcome-pie","14-toggle","20-track-other"]);
+  /* select ve içindekiler hariç: sınıf değişimi açılır listenin MutationObserver'ını tetikleyip açık listeyi kapatırdı */
+  const stateStyles=c=>{const els=[...document.querySelectorAll("html,body,body *")].filter(e=>!e.closest("select")&&e.id!=="__out");
+    const bare=new Set(els.filter(e=>!e.hasAttribute("class")));
+    els.forEach(e=>e.classList.add(c));const s=styles();
+    els.forEach(e=>{e.classList.remove(c);if(bare.has(e))e.removeAttribute("class");});return s;};
   const cap=name=>{void document.body.offsetHeight;out[name]={wrap:q(".wrap").outerHTML,hash:location.hash,active:document.activeElement&&(document.activeElement.id||document.activeElement.outerHTML.slice(0,120)),ls:ls(),log:JSON.parse(JSON.stringify(__log))};
-    if(STYLE_AT.has(name)) out[name].styles=styles();};
+    if(STYLE_AT.has(name)) out[name].styles=styles();
+    if(STATE_AT.has(name)) for(const [,c] of PSEUDO) out[name]["styles"+c]=stateStyles(c);};
   const click=s=>{const e=typeof s==="string"?q(s):s;if(!e)throw new Error("missing "+s);e.click();};
   const setSel=(id,v)=>{const e=document.getElementById(id);e.value=v;e.dispatchEvent(new Event("change",{bubbles:true}));};
   const run=async(name,fn)=>{try{await fn();await tick();cap(name);}catch(e){out[name]={err:String(e&&e.message||e)};}};
   try{
-  await tick(10);
+  await tick(10);twinAll();
   cap("00-initial");
   for(const s of ["applied","skip","all","new"]){
     for(const sc of ["week","all","run"]){await run(`01-tab-${s}-${sc}`,async()=>{click(`#seg-status button[data-v="${s}"]`);click(`#seg-scope button[data-v="${sc}"]`);});}

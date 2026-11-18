@@ -47,13 +47,16 @@ function diff(a,b,tag){
     const x=norm(k,a[k]),y=norm(k,b[k]);
     if(JSON.stringify(x)===JSON.stringify(y)) continue;
     bad++;
-    if(x&&y&&x.styles&&y.styles&&JSON.stringify({...x,styles:0})===JSON.stringify({...y,styles:0})){
-      const n=Math.max(x.styles.length,y.styles.length);let shown=0;
-      for(let i=0;i<n&&shown<3;i++){if(x.styles[i]===y.styles[i])continue;shown++;
-        const xs=(x.styles[i]||"").split(" | "),ys=(y.styles[i]||"").split(" | ");
-        console.log(`  ${tag} ${k} stil: ${xs[0]}  ↔  ${ys[0]}`);
-        const xv=(xs[1]||"").split("|"),yv=(ys[1]||"").split("|");
-        xv.forEach((v,j)=>{if(v!==yv[j])console.log(`      ${PROP_NAMES[j]}: ${v}  →  ${yv[j]}`);});}
+    /* Stil kayıtları (styles, styles__h, styles__f, styles__a) öğe ve özellik adıyla gösterilir */
+    const sk=x&&y?Object.keys({...x,...y}).filter(s=>s.startsWith("styles")):[];
+    const strip=o=>{const c={...o};sk.forEach(s=>delete c[s]);return JSON.stringify(c);};
+    if(sk.length&&strip(x)===strip(y)){
+      for(const s of sk){const xa=x[s]||[],ya=y[s]||[];let shown=0;
+        for(let i=0;i<Math.max(xa.length,ya.length)&&shown<3;i++){if(xa[i]===ya[i])continue;shown++;
+          const xs=(xa[i]||"").split(" | "),ys=(ya[i]||"").split(" | ");
+          console.log(`  ${tag} ${k} ${s}: ${xs[0]}  ↔  ${ys[0]}`);
+          const xv=(xs[1]||"").split("|"),yv=(ys[1]||"").split("|");
+          xv.forEach((v,j)=>{if(v!==yv[j])console.log(`      ${PROP_NAMES[j]}: ${v}  →  ${yv[j]}`);});}}
       continue;
     }
     const xs=JSON.stringify(x)||"",ys=JSON.stringify(y)||"";let i=0;while(xs[i]===ys[i])i++;
