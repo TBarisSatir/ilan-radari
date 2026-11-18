@@ -1589,25 +1589,28 @@ gl_FragColor=vec4(mix(c,tq,w)*al,al);}`
   }
   let lastStep=0;
   function step(now){
-    const active=now-lastUser<2000;
     driveAuto(now);const d=pointerDelta(now);
-    /* Sönüm gerçek geçen süreye göre: boşta 30 fps'e düşülse de saniyedeki yavaşlama aynı kalır */
-    const damp=Math.pow(C.damp,Math.min(now-(lastStep||now-16.7),100)/16.7);lastStep=now;
-    const px=[1/fw,1/fh],size=[fw,fh],mf=C.force*(active?1:C.idleForce),itV=active?C.itV:Math.min(8,C.itV),itP=C.itP;
-    if(C.bounce){pass(P.adv,F.tmp,{velocity:F.vel0,dt:C.dt,fboSize:size,damp});pass(P.bnd,F.vel1,{velocity:F.tmp,px});}
-    else pass(P.adv,F.vel1,{velocity:F.vel0,dt:C.dt,fboSize:size,damp});
+    /* Zaman adımı ve sönüm gerçek geçen süreye göre (1 = 1/60 sn, en fazla 3): boşta 30 fps'e düşülünce akış
+       yarı hıza atlamaz, saniyedeki ilerleme ve yavaşlama aynı kalır. */
+    const el=Math.min(Math.max(now-(lastStep||now-16.7),0),50)/16.7;lastStep=now;
+    const damp=Math.pow(C.damp,el),dt=C.dt*el;
+    /* Boşta itme gücü basamakla değil, otomatik sürücü devreye girdiği andan 2. saniyeye kadar yumuşakça idleForce'a iner */
+    let q=Math.min(1,Math.max(0,(now-lastUser-C.resume)/(2000-C.resume)));q=q*q*(3-2*q);
+    const px=[1/fw,1/fh],size=[fw,fh],mf=C.force*(1-(1-C.idleForce)*q),itV=C.itV,itP=C.itP;
+    if(C.bounce){pass(P.adv,F.tmp,{velocity:F.vel0,dt,fboSize:size,damp});pass(P.bnd,F.vel1,{velocity:F.tmp,px});}
+    else pass(P.adv,F.vel1,{velocity:F.vel0,dt,fboSize:size,damp});
     const cur=Math.min(C.cursor,.6*Math.min(fw,fh)),rx=cur*px[0],ry=cur*px[1];
     const cx=Math.min(Math.max(coords[0],-1+rx+2*px[0]),1-rx-2*px[0]),cy=Math.min(Math.max(coords[1],-1+ry+2*px[1]),1-ry-2*px[1]);
     gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);
     pass(P.force,F.vel1,{center:[cx,cy],scale:[rx,ry],force:[d[0]/2*mf,d[1]/2*mf]});
     gl.disable(gl.BLEND);
-    for(let i=0;i<itV;i++)pass(P.visc,i%2?F.visc0:F.visc1,{velocity:F.vel1,velocity_new:i%2?F.visc1:F.visc0,v:C.visc,dt:C.dt,px});
+    for(let i=0;i<itV;i++)pass(P.visc,i%2?F.visc0:F.visc1,{velocity:F.vel1,velocity_new:i%2?F.visc1:F.visc0,v:C.visc,dt,px});
     const vel=itV%2?F.visc1:F.visc0;
-    pass(P.div,F.div,{velocity:vel,dt:C.dt,px});
+    pass(P.div,F.div,{velocity:vel,dt,px});
     let pr=F.pres0;
     for(let i=0;i<itP;i++){pr=i%2?F.pres0:F.pres1;pass(P.pois,pr,{pressure:i%2?F.pres1:F.pres0,divergence:F.div,px});}
-    if(C.bounce){pass(P.pres,F.tmp,{pressure:pr,velocity:vel,dt:C.dt,px});pass(P.bnd,F.vel0,{velocity:F.tmp,px});}
-    else pass(P.pres,F.vel0,{pressure:pr,velocity:vel,dt:C.dt,px});
+    if(C.bounce){pass(P.pres,F.tmp,{pressure:pr,velocity:vel,dt,px});pass(P.bnd,F.vel0,{velocity:F.tmp,px});}
+    else pass(P.pres,F.vel0,{pressure:pr,velocity:vel,dt,px});
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.clear(gl.COLOR_BUFFER_BIT);
     pass(P.out,null,{velocity:F.vel0,c0:PAL[0],c1:PAL[1],c2:PAL[2],tq:TQ,time:now/1000});
   }
