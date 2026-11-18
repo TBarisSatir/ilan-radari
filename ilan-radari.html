@@ -695,26 +695,36 @@ const STEP_GROUPS=[
 const STEP_KINDS=STEP_GROUPS.flatMap(g=>g.items);
 const KIND_LABEL=Object.fromEntries(STEP_KINDS.map(x=>[x.k,x.l]));
 const lbl=s=>(s.kind==="other"||s.kind==="custom")?(s.label||"Diğer"):(KIND_LABEL[s.kind]||s.label||s.type||"Adım");
-const newDraft=()=>({kind:"hr_screen",date:today(),note:"",custom:""});
+/* Tarih yardımcıları: today() UTC gününü verir (kayıt tarihleri), isoLocal() yerel günü (dönem ve hafta hesapları) */
 const today=()=>new Date().toISOString().slice(0,10);
+const isoLocal=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-${String(x.getDate()).padStart(2,"0")}`;
+/* Haftanın pazartesisi (yerel gün) */
+const weekOf=d=>{const x=new Date(String(d).slice(0,10)+"T12:00:00");x.setDate(x.getDate()-((x.getDay()+6)%7));return isoLocal(x);};
+const newDraft=()=>({kind:"hr_screen",date:today(),note:"",custom:""});
+const errMsg=err=>err?.message||"bilinmeyen hata";
+const reduceMotion=matchMedia("(prefers-reduced-motion: reduce)");
+const CHEV='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+const CHECK='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
 const state={jobs:[],runs:[],status:"new",scope:"run",sort:"date",db:null,pending:false,open:new Set(),stepOpen:new Set(),draft:{},
   fx:{mode:"",track:"",location:"",source:"",tier:"",hasnote:"",fav:"",prog:"",q:""}};
 const SEL={track:"Alan",mode:"Çalışma şekli",location:"Lokasyon",source:"Kaynak"};
+const jobById=id=>state.jobs.find(x=>x._id===id);
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const norm=s=>String(s??"").toLocaleLowerCase("tr");
 const editing=()=>document.activeElement?.matches?.("textarea[data-note], .stepform input, .stepform select");
-const stepsOf=j=>[...(Array.isArray(j.steps)?j.steps:[])].sort((a,b)=>(a.date||"").localeCompare(b.date||"")||(a.id||"").localeCompare(b.id||""));
-const isClosed=j=>(Array.isArray(j.steps)?j.steps:[]).some(s=>s.kind==="rejected");
+const rawSteps=j=>Array.isArray(j.steps)?j.steps:[];
+const stepsOf=j=>[...rawSteps(j)].sort((a,b)=>(a.date||"").localeCompare(b.date||"")||(a.id||"").localeCompare(b.id||""));
+const isClosed=j=>rawSteps(j).some(s=>s.kind==="rejected");
 /* Süreci ilerleyen başvuru: "Başvuru yapıldı"dan sonra en az bir adım eklenmiş olan */
-const hasSteps=j=>Array.isArray(j.steps)&&j.steps.length>0;
+const hasSteps=j=>rawSteps(j).length>0;
 const stageStep=j=>{const s=stepsOf(j);return s.length?s[s.length-1]:{kind:"applied",label:"Başvuru yapıldı"};};
 const stCls=s=>(s.kind==="offer"||s.kind==="offer_accepted")?"good":(s.kind==="rejected"||s.kind==="withdrawn")?"end":s.kind==="applied"?"":"act";
 const dt=d=>/^\d{4}-\d{2}-\d{2}/.test(String(d??""))?String(d).slice(0,10).split("-").reverse().join("."):String(d??"");
 const hasNote=j=>!!(j.note&&String(j.note).trim());
 /* Zaman kapsamı: "Son tarama" en son taramanın günü (tarama kaydı yoksa en yeni bulunma günü), "Son 7 gün" bugün dahil son yedi gün */
 const lastRunDay=()=>state.runs[0]?._id||state.jobs.reduce((m,j)=>(j.found||"")>m?j.found:m,"");
-const daysAgo=n=>{const d=new Date();d.setDate(d.getDate()-n);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;};
+const daysAgo=n=>{const d=new Date();d.setDate(d.getDate()-n);return isoLocal(d);};
 function inScope(j){
   if(state.scope==="run"){const d=lastRunDay();return !!d&&j.found===d;}
   if(state.scope==="week") return (j.found||"")>=daysAgo(6);
@@ -722,7 +732,8 @@ function inScope(j){
 }
 const SCOPE_EMPTY={run:"Son taramada",week:"Son 7 günde"};
 /* Başvurulmamış favoriler ve süreci ilerleyen başvurular: boş ana liste yedeği ile slayt alanı aynı tanımı kullanır */
-const favOpen=()=>state.jobs.filter(j=>j.fav&&(j.status||"new")==="new").sort((a,b)=>(b.favDate||"").localeCompare(a.favDate||"")||(b.score||0)-(a.score||0));
+const byFavDate=(a,b)=>(b.favDate||"").localeCompare(a.favDate||"")||(b.score||0)-(a.score||0);
+const favOpen=()=>state.jobs.filter(j=>j.fav&&(j.status||"new")==="new").sort(byFavDate);
 const progressing=()=>state.jobs.filter(j=>j.status==="applied"&&hasSteps(j)&&!isClosed(j)&&stageStep(j).kind!=="withdrawn")
   .sort((a,b)=>(stageStep(b).date||"").localeCompare(stageStep(a).date||""));
 
@@ -745,17 +756,18 @@ const SORTS={
   "score-asc":(a,b)=>(a.score||0)-(b.score||0)||(b.found||"").localeCompare(a.found||"")
 };
 
-function fillSelects(){
-  for(const k in SEL){
-    const el=$("f-"+k);
-    const vals=[...new Set(state.jobs.map(j=>j[k]).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"tr"));
-    if(state.fx[k]&&!vals.includes(state.fx[k])) vals.push(state.fx[k]);
-    const sig=vals.join("\u0001");
-    if(el.dataset.sig!==sig){
-      el.innerHTML=`<option value="">${SEL[k]}: tümü</option>`+vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join("");
-      el.dataset.sig=sig;
-    }
+/* Seçenek listesi: işlerdeki farklı değerler alfabetik; seçili değer listede yoksa sona eklenir. Liste değişmediyse DOM'a dokunulmaz. */
+function fillOptions(el,label,jobs,key,cur){
+  const vals=[...new Set(jobs.map(j=>j[key]).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"tr"));
+  if(cur&&!vals.includes(cur)) vals.push(cur);
+  const sig=vals.join("\u0001");
+  if(el.dataset.sig!==sig){
+    el.innerHTML=`<option value="">${label}: tümü</option>`+vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join("");
+    el.dataset.sig=sig;
   }
+}
+function fillSelects(){
+  for(const k in SEL) fillOptions($("f-"+k),SEL[k],state.jobs,k,state.fx[k]);
   document.querySelectorAll(".more select").forEach(el=>{el.value=state.fx[el.dataset.fk]||"";el.classList.toggle("set",!!el.value);});
 }
 function syncSeg(id,val){document.querySelectorAll(`#${id} button`).forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v===val)));}
@@ -875,20 +887,22 @@ const fbIsMin=k=>typeof fbMin[k]==="boolean"?fbMin[k]:!!FB_DEF[k];
 
 async function saveNote(id){
   const ta=document.querySelector(`textarea[data-note="${CSS.escape(id)}"]`);
-  const st=$("s-"+id), j=state.jobs.find(x=>x._id===id);
+  const st=$("s-"+id), j=jobById(id);
   if(!ta||!j||!state.db) return;
   const val=ta.value.trim();
   if(val===(j.note||"")) return;
   if(st) st.textContent="Kaydediliyor…";
   try{
-    const today=new Date().toISOString().slice(0,10);
-    await state.db.doc("jobs/"+id).update({note:val,noteDate:today});
-    j.note=val;j.noteDate=today;
+    const d=today();
+    await state.db.doc("jobs/"+id).update({note:val,noteDate:d});
+    j.note=val;j.noteDate=d;
     if(st) st.textContent="Kaydedildi";
-  }catch(err){if(st) st.textContent="Kaydedilemedi: "+(err?.message||"bilinmeyen hata")+". Tekrar dene.";}
+  }catch(err){if(st) st.textContent="Kaydedilemedi: "+errMsg(err)+". Tekrar dene.";}
 }
 
-function segBind(id,fn){$(id).addEventListener("click",e=>{const b=e.target.closest("button[data-v]");if(b){fn(b.dataset.v);render(true);}});}
+/* Segment kontrolü: içindeki data-v düğmesine tıklanınca fn(değer) çağrılır */
+function onSeg(id,fn){$(id).addEventListener("click",e=>{const b=e.target.closest("button[data-v]");if(b)fn(b.dataset.v);});}
+function segBind(id,fn){onSeg(id,v=>{fn(v);render(true);});}
 segBind("seg-status",v=>state.status=v);
 segBind("seg-scope",v=>state.scope=v);
 segBind("seg-note",v=>state.fx.hasnote=v);
@@ -901,69 +915,63 @@ document.querySelectorAll(".more select").forEach(el=>el.addEventListener("chang
 $("f-q").addEventListener("input",e=>{state.fx.q=e.target.value.trim();render(true);});
 $("f-clear").addEventListener("click",()=>{for(const k in state.fx) state.fx[k]="";$("f-q").value="";render(true);});
 
-$("list").addEventListener("click",async e=>{
+/* Kart eylemleri: tıklanan öğeye en yakın eşleşen ilk seçicinin işi yapılır; sıra önceliği belirler */
+const closeStepForm=jid=>{state.stepOpen.delete(jid);delete state.draft[jid];};
+const LIST_ACTIONS=[
   /* Başlık metnine tıklamak da düğmeyle aynı işi yapar; klavye için düğme tek odak noktası olarak kalır */
-  const ft=e.target.closest("[data-fbtoggle]");
-  if(ft){const k=ft.dataset.fbtoggle;fbMin[k]=!fbIsMin(k);try{localStorage.setItem(FB_KEY,JSON.stringify(fbMin));}catch{}
-    render(true);document.querySelector(`button[data-fbtoggle="${k}"]`)?.focus();return;}
-  const ws=e.target.closest("button[data-scope]");
-  if(ws){state.scope=ws.dataset.scope;render(true);$("seg-scope").querySelector(`button[data-v="${ws.dataset.scope}"]`)?.focus();return;}
-  const tg=e.target.closest("button[data-fk]");
-  if(tg){const k=tg.dataset.fk,v=tg.dataset.fv;state.fx[k]=state.fx[k]===v?"":v;if(state.fx[k])showFilters(true);render(true);return;}
-  const fv=e.target.closest("button[data-fav]");
-  if(fv){
+  ["[data-fbtoggle]",ft=>{const k=ft.dataset.fbtoggle;fbMin[k]=!fbIsMin(k);try{localStorage.setItem(FB_KEY,JSON.stringify(fbMin));}catch{}
+    render(true);document.querySelector(`button[data-fbtoggle="${k}"]`)?.focus();}],
+  ["button[data-scope]",ws=>{state.scope=ws.dataset.scope;render(true);$("seg-scope").querySelector(`button[data-v="${ws.dataset.scope}"]`)?.focus();}],
+  ["button[data-fk]",tg=>{const k=tg.dataset.fk,v=tg.dataset.fv;state.fx[k]=state.fx[k]===v?"":v;if(state.fx[k])showFilters(true);render(true);}],
+  ["button[data-fav]",async fv=>{
     if(!state.db) return;
-    const j=state.jobs.find(x=>x._id===fv.dataset.fav); if(!j) return;
+    const j=jobById(fv.dataset.fav); if(!j) return;
     fv.disabled=true;
-    try{await state.db.doc("jobs/"+j._id).update(j.fav?{fav:false}:{fav:true,favDate:new Date().toISOString().slice(0,10)});}
-    catch(err){$("note").textContent="Favori kaydedilemedi: "+(err?.message||"bilinmeyen hata")+". Tekrar dene.";}
+    try{await state.db.doc("jobs/"+j._id).update(j.fav?{fav:false}:{fav:true,favDate:today()});}
+    catch(err){$("note").textContent="Favori kaydedilemedi: "+errMsg(err)+". Tekrar dene.";}
     fv.disabled=false;
-    return;
-  }
-  const so=e.target.closest("button[data-stepopen]");
-  if(so){state.stepOpen.add(so.dataset.stepopen);render(true);document.querySelector(`button[data-kopt][aria-checked="true"][data-jid="${CSS.escape(so.dataset.stepopen)}"]`)?.focus();return;}
-  const ko=e.target.closest("button[data-kopt]");
-  if(ko){const k=ko.dataset.jid;state.draft[k]=state.draft[k]||newDraft();
+  }],
+  ["button[data-stepopen]",so=>{state.stepOpen.add(so.dataset.stepopen);render(true);document.querySelector(`button[data-kopt][aria-checked="true"][data-jid="${CSS.escape(so.dataset.stepopen)}"]`)?.focus();}],
+  ["button[data-kopt]",ko=>{const k=ko.dataset.jid;state.draft[k]=state.draft[k]||newDraft();
     ["date","note","custom"].forEach(f=>{const el=document.querySelector(`[data-sf="${f}"][data-jid="${CSS.escape(k)}"]`);if(el)state.draft[k][f]=el.value;});
     state.draft[k].kind=ko.dataset.kopt;render(true);
-    (ko.dataset.kopt==="other"?$("st-custom-"+k):document.querySelector(`button[data-kopt="${ko.dataset.kopt}"][data-jid="${CSS.escape(k)}"]`))?.focus();return;}
-  const sc=e.target.closest("button[data-stepcancel]");
-  if(sc){state.stepOpen.delete(sc.dataset.stepcancel);delete state.draft[sc.dataset.stepcancel];render(true);return;}
-  const sa=e.target.closest("button[data-stepadd]");
-  if(sa){
-    const jid=sa.dataset.stepadd, j=state.jobs.find(x=>x._id===jid); if(!j||!state.db) return;
-    if(isClosed(j)){state.stepOpen.delete(jid);delete state.draft[jid];render(true);return;}
+    (ko.dataset.kopt==="other"?$("st-custom-"+k):document.querySelector(`button[data-kopt="${ko.dataset.kopt}"][data-jid="${CSS.escape(k)}"]`))?.focus();}],
+  ["button[data-stepcancel]",sc=>{closeStepForm(sc.dataset.stepcancel);render(true);}],
+  ["button[data-stepadd]",async sa=>{
+    const jid=sa.dataset.stepadd, j=jobById(jid); if(!j||!state.db) return;
+    if(isClosed(j)){closeStepForm(jid);render(true);return;}
     const kind=(state.draft[jid]||newDraft()).kind, date=$("st-date-"+jid)?.value||today(), note=($("st-note-"+jid)?.value||"").trim();
     const custom=($("st-custom-"+jid)?.value||"").trim(); const m=$("sm-"+jid);
     if(kind==="other"&&!custom){if(m)m.textContent="Diğer adım için bir ad yaz.";$("st-custom-"+jid)?.focus();return;}
-    const arr=[...(Array.isArray(j.steps)?j.steps:[]),{id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),kind,label:kind==="other"?custom:KIND_LABEL[kind],date,note}];
+    const arr=[...rawSteps(j),{id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),kind,label:kind==="other"?custom:KIND_LABEL[kind],date,note}];
     sa.disabled=true;if(m)m.textContent="Kaydediliyor…";
-    try{await state.db.doc("jobs/"+jid).update({steps:arr});state.stepOpen.delete(jid);delete state.draft[jid];render(true);}
-    catch(err){sa.disabled=false;if(m)m.textContent="Kaydedilemedi: "+(err?.message||"bilinmeyen hata")+". Tekrar dene.";}
-    return;
-  }
-  const sd=e.target.closest("button[data-stepdel]");
-  if(sd){
+    try{await state.db.doc("jobs/"+jid).update({steps:arr});closeStepForm(jid);render(true);}
+    catch(err){sa.disabled=false;if(m)m.textContent="Kaydedilemedi: "+errMsg(err)+". Tekrar dene.";}
+  }],
+  /* Silme iki adımlı: ilk tıklama 3 saniyeliğine kurar, ikincisi siler */
+  ["button[data-stepdel]",async sd=>{
     if(!sd.dataset.armed){sd.dataset.armed="1";sd.textContent="Emin misin?";setTimeout(()=>{if(sd.isConnected){delete sd.dataset.armed;sd.textContent="Sil";}},3000);return;}
-    const jid=sd.dataset.stepdel, j=state.jobs.find(x=>x._id===jid); if(!j||!state.db) return;
+    const jid=sd.dataset.stepdel, j=jobById(jid); if(!j||!state.db) return;
     sd.disabled=true;
     try{await state.db.doc("jobs/"+jid).update({steps:(j.steps||[]).filter(s=>s.id!==sd.dataset.sid)});}
-    catch(err){sd.disabled=false;$("note").textContent="Adım silinemedi: "+(err?.message||"bilinmeyen hata")+".";}
-    return;
-  }
-  const op=e.target.closest("button[data-open]");
-  if(op){state.open.add(op.dataset.open);render(true);document.querySelector(`textarea[data-note="${CSS.escape(op.dataset.open)}"]`)?.focus();return;}
-  const cl=e.target.closest("button[data-close]");
-  if(cl){await saveNote(cl.dataset.close);state.open.delete(cl.dataset.close);render(true);return;}
-  const sv=e.target.closest("button[data-save]");
-  if(sv){await saveNote(sv.dataset.save);return;}
-  const b=e.target.closest("button[data-id]"); if(!b||!state.db) return;
-  const j=state.jobs.find(x=>x._id===b.dataset.id); if(!j) return;
-  const next=j.status===b.dataset.s?"new":b.dataset.s;
-  b.disabled=true;
-  try{await state.db.doc("jobs/"+j._id).update({status:next,statusDate:new Date().toISOString().slice(0,10)});}
-  catch(err){$("note").textContent="Durum kaydedilemedi: "+(err?.message||"bilinmeyen hata")+". Sayfayı yenileyip tekrar dene.";}
-  b.disabled=false;
+    catch(err){sd.disabled=false;$("note").textContent="Adım silinemedi: "+errMsg(err)+".";}
+  }],
+  ["button[data-open]",op=>{state.open.add(op.dataset.open);render(true);document.querySelector(`textarea[data-note="${CSS.escape(op.dataset.open)}"]`)?.focus();}],
+  ["button[data-close]",async cl=>{await saveNote(cl.dataset.close);state.open.delete(cl.dataset.close);render(true);}],
+  ["button[data-save]",sv=>saveNote(sv.dataset.save)],
+  /* Başvurdum / İlgilenmiyorum: aynı duruma tekrar basmak ilanı "Yeni"ye döndürür */
+  ["button[data-id]",async b=>{
+    if(!state.db) return;
+    const j=jobById(b.dataset.id); if(!j) return;
+    const next=j.status===b.dataset.s?"new":b.dataset.s;
+    b.disabled=true;
+    try{await state.db.doc("jobs/"+j._id).update({status:next,statusDate:today()});}
+    catch(err){$("note").textContent="Durum kaydedilemedi: "+errMsg(err)+". Sayfayı yenileyip tekrar dene.";}
+    b.disabled=false;
+  }]
+];
+$("list").addEventListener("click",async e=>{
+  for(const [sel,fn] of LIST_ACTIONS){const el=e.target.closest(sel);if(el){await fn(el);return;}}
 });
 const keepDraft=e=>{const el=e.target.closest?.("[data-sf]");if(!el)return;const k=el.dataset.jid;state.draft[k]=state.draft[k]||newDraft();state.draft[k][el.dataset.sf]=el.value;};
 $("list").addEventListener("input",keepDraft);
@@ -985,7 +993,6 @@ const originOf=j=>j.manual?"manual":"auto";
 const rs=(()=>{const d={preset:"full",secs:PRESETS.full.secs.slice(),steps:true,period:"all",from:"",to:"",track:"",source:"",origin:"",title:"Başvuru Raporu"};
   try{const s=JSON.parse(localStorage.getItem(RS_KEY)||"{}");return Object.assign(d,s&&typeof s==="object"?s:{});}catch{return d;}})();
 const saveRs=()=>{try{localStorage.setItem(RS_KEY,JSON.stringify(rs));}catch{}};
-const isoLocal=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-${String(x.getDate()).padStart(2,"0")}`;
 const trDate=d=>d?String(d).slice(0,10).split("-").reverse().join("."):"—";
 const pct=(a,b)=>b?Math.round(a*100/b):0;
 const dayDiff=(a,b)=>Math.round((Date.parse(b)-Date.parse(a))/864e5);
@@ -1125,10 +1132,9 @@ function secBreakdown(A,pdf){
 }
 function secTimeline(A,pdf){
   const P=pal(pdf),mode=rs.viz.timeline,T="Zaman içinde başvurular",tools=vz("timeline",pdf);
-  const wk=d=>{const x=new Date(d.slice(0,10)+"T12:00:00");x.setDate(x.getDate()-((x.getDay()+6)%7));return isoLocal(x);};
   const m=new Map(),rm=new Map();
-  A.filter(a=>a.ad).forEach(a=>{const w=wk(a.ad);m.set(w,(m.get(w)||0)+1);
-    const f=a.steps.find(x=>x.date);if(f){const w2=wk(f.date);rm.set(w2,(rm.get(w2)||0)+1);}});
+  A.filter(a=>a.ad).forEach(a=>{const w=weekOf(a.ad);m.set(w,(m.get(w)||0)+1);
+    const f=a.steps.find(x=>x.date);if(f){const w2=weekOf(f.date);rm.set(w2,(rm.get(w2)||0)+1);}});
   if(!m.size) return blk(T,`<p class="rnote">Tarih bilgisi olan başvuru yok.</p>`,"",tools);
   const keys=[...m.keys(),...(mode==="cum"?rm.keys():[])].sort();let cur=new Date(keys[0]+"T12:00:00");const end=keys[keys.length-1];const weeks=[];
   while(isoLocal(cur)<=end){weeks.push(isoLocal(cur));cur.setDate(cur.getDate()+7);}
@@ -1167,10 +1173,8 @@ function reportHtml(pdf){
   return `<div class="report">${head}${secs.map(k=>`<div class="rsec" id="rs-${k}">${F[k](A)}</div>`).join("")}${blk("",`<p class="foot">Başvuru tarihi, ilanı "Başvurdum" olarak işaretlediğin gündür. Süreç verileri kartlara eklediğin adımlardan hesaplanır; adım eklenmemiş başvurular "yanıt yok" sayılır.</p>`)}</div>`;
 }
 function fillRSel(id,key,label){
-  const el=$(id), vals=[...new Set(state.jobs.filter(j=>j.status==="applied").map(j=>j[key]).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"tr"));
-  if(rs[key]&&!vals.includes(rs[key])) vals.push(rs[key]);
-  const sig=vals.join("\u0001");
-  if(el.dataset.sig!==sig){el.innerHTML=`<option value="">${label}: tümü</option>`+vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join("");el.dataset.sig=sig;}
+  const el=$(id);
+  fillOptions(el,label,state.jobs.filter(j=>j.status==="applied"),key,rs[key]);
   el.value=rs[key]||"";el.classList.toggle("set",!!el.value);
 }
 function matchPreset(){
@@ -1204,18 +1208,15 @@ const goView=v=>{try{location.hash=v==="stats"?"istatistik":"ilanlar";}catch{} s
 $("pv").addEventListener("click",()=>goView("stats"));
 $("st-back").addEventListener("click",()=>goView("list"));
 const rUpd=()=>{saveRs();renderStats();};
-$("r-preset").addEventListener("click",e=>{const b=e.target.closest("button[data-v]");if(!b)return;rs.preset=b.dataset.v;
+onSeg("r-preset",v=>{rs.preset=v;
   if(PRESETS[rs.preset]){rs.secs=PRESETS[rs.preset].secs.slice();rs.steps=PRESETS[rs.preset].steps;}rUpd();});
 $("r-secs").addEventListener("click",e=>{const b=e.target.closest("button[data-sec]");if(!b)return;const k=b.dataset.sec;
   rs.secs=rs.secs.includes(k)?rs.secs.filter(x=>x!==k):SECS.map(s=>s.k).filter(x=>x===k||rs.secs.includes(x));rs.preset=matchPreset();rUpd();
   document.querySelector(`#r-secs button[data-sec="${k}"]`)?.focus();});
-$("r-steps").addEventListener("click",e=>{const b=e.target.closest("button[data-v]");if(!b)return;rs.steps=b.dataset.v==="1";rs.preset=matchPreset();rUpd();});
-$("r-period").addEventListener("click",e=>{const b=e.target.closest("button[data-v]");if(!b)return;rs.period=b.dataset.v;rUpd();});
-$("r-origin").addEventListener("click",e=>{const b=e.target.closest("button[data-v]");if(!b)return;rs.origin=b.dataset.v;rUpd();});
-$("r-from").addEventListener("change",e=>{rs.from=e.target.value;rUpd();});
-$("r-to").addEventListener("change",e=>{rs.to=e.target.value;rUpd();});
-$("r-track").addEventListener("change",e=>{rs.track=e.target.value;rUpd();});
-$("r-source").addEventListener("change",e=>{rs.source=e.target.value;rUpd();});
+onSeg("r-steps",v=>{rs.steps=v==="1";rs.preset=matchPreset();rUpd();});
+onSeg("r-period",v=>{rs.period=v;rUpd();});
+onSeg("r-origin",v=>{rs.origin=v;rUpd();});
+for(const [id,k] of [["r-from","from"],["r-to","to"],["r-track","track"],["r-source","source"]]) $(id).addEventListener("change",e=>{rs[k]=e.target.value;rUpd();});
 $("r-title").addEventListener("input",e=>{rs.title=e.target.value;saveRs();$("report").innerHTML=reportHtml(false);});
 
 const loadScript=src=>new Promise((res,rej)=>{const s=document.createElement("script");s.src=src;s.onload=()=>res();s.onerror=()=>{s.remove();rej(new Error("PDF kütüphanesi yüklenemedi, bağlantını kontrol edip tekrar dene"));};document.head.appendChild(s);});
@@ -1252,7 +1253,7 @@ async function exportPdf(){
     const c=e?.code;
     msg.textContent=c==="declined"?"İndirme iptal edildi.":c==="rate_limited"?"Açık bir indirme onayı var; onu kapatıp tekrar dene.":
       ["unavailable","not_granted","capability_disabled","capability_removed","extension_not_enabled"].includes(c)?"PDF indirme bu görünümde kullanılamıyor.":
-      "PDF oluşturulamadı: "+(e?.message||"bilinmeyen hata");
+      "PDF oluşturulamadı: "+errMsg(e);
   }finally{host?.remove();busy.hidden=true;root.style.overflow=prevOv;btn.disabled=false;}
 }
 /* İndir'e basınca başlık sorulur; ayarlar ayrı bir panelde, kapalı gelir */
@@ -1267,7 +1268,6 @@ $("report").addEventListener("click",e=>{const b=e.target.closest("button[data-v
 $("r-toggle").addEventListener("click",()=>{const on=$("r-panel").hidden;$("r-panel").hidden=!on;$("r-toggle").setAttribute("aria-expanded",String(on));});
 
 /* ===================== Sağ sütun: istatistik önizlemesi ve slaytlar ===================== */
-const weekOf=d=>{const x=new Date(String(d).slice(0,10)+"T12:00:00");x.setDate(x.getDate()-((x.getDay()+6)%7));return isoLocal(x);};
 function renderPreview(){
   const A=state.jobs.filter(j=>j.status==="applied").map(analyze),N=A.length;
   const k=(v,l)=>`<span><b>${v}</b><small>${l}</small></span>`;
@@ -1283,13 +1283,14 @@ function renderPreview(){
 
 /* Slaytlar: boş olanlar gösterilmez. Bir ilana dokununca soldaki listede kartına gidilir. */
 const SL_MAX=4;
+const scoreCell=j=>[Number(j.score||0).toFixed(1),j.tier==="near"?"near":""];
 const SLIDES=[
   {k:"top",t:"Öne çıkanlar",d:"Henüz başvurmadığın en yüksek puanlı ilanlar",
     get:()=>state.jobs.filter(j=>(j.status||"new")==="new"&&!j.manual).sort(SORTS["score-desc"]),
-    val:j=>[Number(j.score||0).toFixed(1),j.tier==="near"?"near":""]},
+    val:scoreCell},
   {k:"fav",t:"Favoriler",d:"Favoriye eklediğin, elemediğin ilanlar",
-    get:()=>state.jobs.filter(j=>j.fav&&j.status!=="skip").sort((a,b)=>(b.favDate||"").localeCompare(a.favDate||"")||(b.score||0)-(a.score||0)),
-    val:j=>j.status==="applied"?[lbl(stageStep(j)).replace(/^Başvuru yapıldı$/,"Başvuruldu"),"txt"]:j.manual?["Elle","txt"]:[Number(j.score||0).toFixed(1),j.tier==="near"?"near":""]},
+    get:()=>state.jobs.filter(j=>j.fav&&j.status!=="skip").sort(byFavDate),
+    val:j=>j.status==="applied"?[lbl(stageStep(j)).replace(/^Başvuru yapıldı$/,"Başvuruldu"),"txt"]:j.manual?["Elle","txt"]:scoreCell(j)},
   {k:"prog",t:"İlerleyen başvurular",d:"Süreç adımı eklenmiş, kapanmamış başvurular",
     get:progressing,
     val:j=>{const s=stageStep(j);return [lbl(s),"txt "+(stCls(s)==="good"?"good":"act")];}},
@@ -1298,7 +1299,7 @@ const SLIDES=[
       .sort((a,b)=>appliedDate(a).localeCompare(appliedDate(b))),
     val:j=>[dayDiff(appliedDate(j),isoLocal(new Date()))+" gün","txt"]}
 ];
-const sl={i:0,n:0,sig:"",timer:0,hold:false,reduce:matchMedia("(prefers-reduced-motion: reduce)").matches};
+const sl={i:0,n:0,sig:"",timer:0,hold:false,reduce:reduceMotion.matches};
 function renderSlides(){
   const live=SLIDES.map(x=>({...x,items:x.get()})).filter(x=>x.items.length);
   const html=live.length?live.map((x,si)=>`<div class="slide" role="group" aria-roledescription="slayt" aria-label="${si+1} / ${live.length}: ${esc(x.t)}" id="sl-${x.k}">
@@ -1341,7 +1342,7 @@ slArm();
 
 /* Listede göster: ilanın sekmesine geçer, gerekiyorsa kapsamı ve filtreleri açar, karta kayar ve kısaca vurgular */
 function goJob(id){
-  const j=state.jobs.find(x=>x._id===id);if(!j)return;
+  const j=jobById(id);if(!j)return;
   if(state.view!=="list") goView("list");
   state.status=j.status||"new";
   if(!inScope(j)) state.scope="all";
@@ -1397,10 +1398,10 @@ function closeAdd(reset){
     $("m-source").selectedIndex=0;$("m-source-other-wrap").hidden=true;mstate.track="Yazılım";mstate.mode="Belirtilmemiş";syncM();}
 }
 $("add-open").addEventListener("click",()=>{addOpen()?closeAdd(false):openAdd();});
-$("m-track").addEventListener("click",e=>{const b=e.target.closest("button[data-v]");if(b){mstate.track=b.dataset.v;syncM();if(b.dataset.v==="Diğer")$("m-track-other").focus();}});
+onSeg("m-track",v=>{mstate.track=v;syncM();if(v==="Diğer")$("m-track-other").focus();});
 $("m-track-other").addEventListener("input",syncTrackOther);
 $("m-track-recent").addEventListener("click",e=>{const b=e.target.closest("button[data-tv]");if(b){$("m-track-other").value=b.dataset.tv;syncTrackOther();}});
-$("m-mode").addEventListener("click",e=>{const b=e.target.closest("button[data-v]");if(b){mstate.mode=b.dataset.v;syncM();}});
+onSeg("m-mode",v=>{mstate.mode=v;syncM();});
 $("m-source").addEventListener("change",e=>{$("m-source-other-wrap").hidden=e.target.value!=="__other";if(e.target.value==="__other")$("m-source-other").focus();});
 ["m-company","m-title"].forEach(i=>$(i).addEventListener("input",()=>{mstate.dupArmed="";}));
 $("m-save").addEventListener("click",async()=>{
@@ -1429,7 +1430,7 @@ $("m-save").addEventListener("click",async()=>{
     state.status="applied";render(true);
     $("add-done").textContent=`Eklendi: ${company} – ${title}. "Başvurdum" sekmesinde, süreç adımı ekleyebilirsin.`;
     $("add-open").focus();
-  }catch(err){msg.textContent="Kaydedilemedi: "+(err?.message||"bilinmeyen hata")+". Tekrar dene.";}
+  }catch(err){msg.textContent="Kaydedilemedi: "+errMsg(err)+". Tekrar dene.";}
   finally{btn.disabled=false;}
 });
 
@@ -1439,7 +1440,7 @@ $("m-save").addEventListener("click",async()=>{
   const host=$("ether"),cv=$("ether-c");if(!host||!cv)return;
   const off=()=>{host.hidden=true;};
   try{
-  if(matchMedia("(prefers-reduced-motion: reduce)").matches)return off();
+  if(reduceMotion.matches)return off();
   const gl=cv.getContext("webgl2",{alpha:true,antialias:false,depth:false,stencil:false,powerPreference:"low-power"});
   if(!gl||!(gl.getExtension("EXT_color_buffer_float")||gl.getExtension("EXT_color_buffer_half_float")))return off();
   const small=matchMedia("(max-width: 991px)").matches;
@@ -1655,13 +1656,11 @@ let spyRaf=0;
 window.addEventListener("scroll",()=>{if(!spyRaf)spyRaf=requestAnimationFrame(()=>{spyRaf=0;spyToc();});},{passive:true});
 wideToc.addEventListener?.("change",()=>spyToc(true));
 $("r-toc").addEventListener("click",e=>{const b=e.target.closest("button[data-go]");if(!b)return;const s=$(b.dataset.go);if(!s)return;
-  s.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"});
+  s.scrollIntoView({behavior:reduceMotion.matches?"auto":"smooth",block:"start"});
   const h=s.querySelector("h3");if(h){h.tabIndex=-1;h.focus({preventScroll:true});}});
 
 /* ===================== Açılır listeler ===================== */
 /* Yerel select gizlenir ama değerin ve change olayının sahibi olarak kalır; kodun value / selectedIndex atamaları düğmeye yansır. */
-const CHEV='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
-const CHECK='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
 const SELP={value:Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,"value"),selectedIndex:Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,"selectedIndex")};
 let openSel=null;
 function enhanceSelect(sel){
