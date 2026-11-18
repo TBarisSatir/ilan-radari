@@ -224,6 +224,10 @@ select.set{border-color:var(--muted);background:var(--surface-2);font-weight:500
 .fb{display:flex;flex-direction:column;gap:12px;margin-top:12px}
 .fb-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .fb-hd>div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.fb-tx{cursor:pointer;-webkit-user-select:none;user-select:none}
+.fb-tx h2{transition:color .15s var(--ease)}
+.fb-tx:hover h2{color:var(--soft)}
+.fb-hd:has(.fb-tx:hover) .fb-tg{color:var(--fg);border-color:var(--muted)}
 .fb-tg{flex:none;gap:4px;padding-left:8px}
 .fb-tg svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transform:rotate(180deg);transition:transform .15s var(--ease)}
 .fb.min .fb-tg svg{transform:none}
@@ -859,7 +863,7 @@ function fallbackHtml(n){
     :{k:"prog",t:"İlerleyen başvurular",d:"Süreç adımı eklenmiş, kapanmamış başvurular",a:progressing()};
   if(!g.a.length) return "";
   const min=fbIsMin(g.k);
-  return `<section class="fb${min?" min":""}" aria-label="${esc(g.t)}"><div class="fb-hd"><div><h2>${esc(g.t)}<span class="badge">${g.a.length}</span></h2><p>${esc(g.d)}</p></div>
+  return `<section class="fb${min?" min":""}" aria-label="${esc(g.t)}"><div class="fb-hd"><div class="fb-tx" data-fbtoggle="${g.k}" title="${min?"Büyüt":"Küçült"}"><h2>${esc(g.t)}<span class="badge">${g.a.length}</span></h2><p>${esc(g.d)}</p></div>
     <button type="button" class="btn ghost fb-tg" data-fbtoggle="${g.k}" aria-expanded="${!min}" aria-controls="fb-body">${CHEV}<span>${min?"Büyüt":"Küçült"}</span></button></div>
     <div class="fb-body" id="fb-body"${min?" hidden":""}>${g.a.map(card).join("")}</div></section>`;
 }
@@ -898,7 +902,8 @@ $("f-q").addEventListener("input",e=>{state.fx.q=e.target.value.trim();render(tr
 $("f-clear").addEventListener("click",()=>{for(const k in state.fx) state.fx[k]="";$("f-q").value="";render(true);});
 
 $("list").addEventListener("click",async e=>{
-  const ft=e.target.closest("button[data-fbtoggle]");
+  /* Başlık metnine tıklamak da düğmeyle aynı işi yapar; klavye için düğme tek odak noktası olarak kalır */
+  const ft=e.target.closest("[data-fbtoggle]");
   if(ft){const k=ft.dataset.fbtoggle;fbMin[k]=!fbIsMin(k);try{localStorage.setItem(FB_KEY,JSON.stringify(fbMin));}catch{}
     render(true);document.querySelector(`button[data-fbtoggle="${k}"]`)?.focus();return;}
   const ws=e.target.closest("button[data-scope]");
