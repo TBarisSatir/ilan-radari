@@ -197,6 +197,14 @@ select.set{border-color:var(--muted);background:var(--surface-2);font-weight:500
 .tabs button:not([aria-pressed="true"]) .n{color:var(--muted)}
 .filters{display:flex;flex-direction:column;gap:12px}
 .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+/* Sık kullanılan filtre kombinasyonları: arama satırının altında, panel açılmadan tek dokunuşla uygulanır */
+.sugs{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.sugs .lbl{margin-right:4px}
+.tag.sug{height:auto;min-height:28px;padding:4px 12px;font-size:13px;line-height:20px;color:var(--soft);text-align:left}
+.tag.sug.sel{color:var(--fg)}
+.tag.sug.pin{gap:6px}
+.tag.sug.pin svg{flex:none;width:14px;height:14px;fill:none;stroke:var(--pink);stroke-width:1.75;stroke-linejoin:round}
+.tag.sug.pin.sel svg{fill:var(--pink)}
 .toolbar .btn{min-height:36px}
 .toolbar .btn[aria-expanded="true"]{border-color:var(--muted);background:var(--surface)}
 /* "Başvuru ekle" / "İptal et": iki etiket aynı hücrede durur, biri gizlenir; buton genişliği hep uzun olana göre kalır */
@@ -602,6 +610,7 @@ button:focus-visible,a:focus-visible,summary:focus-visible,textarea:focus-visibl
       </select>
       <button type="button" class="btn" id="f-toggle" aria-expanded="false" aria-controls="f-panel">Filtreler<span class="badge" id="f-n"></span></button>
     </div>
+    <div class="sugs" id="f-sug" role="group" aria-label="Sık kullandığın filtre kombinasyonları" hidden></div>
     <div class="panel" id="f-panel" hidden>
     <div class="ctl">
       <span class="lbl">Favori</span>
@@ -859,6 +868,7 @@ function render(force){
   $("fcount").textContent=`${rows.length} ilan${active?` (${inTab.length} içinden)`:""}`;
   $("f-clear").hidden=!active;
   $("f-n").textContent=Object.entries(state.fx).filter(([k,v])=>k!=="q"&&v).length||"";
+  renderSug();fuTrack();
   /* Sekme sayıları seçili zaman kapsamına göredir; önizlemedeki "Bekleyen" tüm zamanların toplamı */
   const c={new:0,applied:0,skip:0};scoped.forEach(j=>c[j.status||"new"]=(c[j.status||"new"]||0)+1);
   for(const k in c){const el=$("c-"+k);if(el) el.textContent=c[k];}
@@ -916,6 +926,63 @@ segBind("seg-note",v=>state.fx.hasnote=v);
 segBind("seg-fav",v=>state.fx.fav=v);
 segBind("seg-origin",v=>state.fx.origin=v);
 segBind("seg-prog",v=>state.fx.prog=v);
+
+/* ===================== Sık kullanılan filtre kombinasyonları ===================== */
+/* Arama metni dışındaki etkin filtreler bir kombinasyondur. Bir kombinasyon FU_SETTLE kadar ekranda kalırsa bir kullanım yazılır;
+   filtre seçerken geçilen ara durumlar sayılmaz. Aynı kombinasyon, filtreler temizlenip yeniden uygulanınca tekrar sayılır.
+   Kayıt veritabanında tek belgede durur: prefs/filters = {combos:{anahtar:{fx,n,last}}}. Telefon ve bilgisayar aynı kaydı paylaşır.
+   En az FU_MIN kez kullanılanlardan en sık FU_SHOW tanesi arama satırının altında önerilir; eşitlikte en son kullanılan önce gelir.
+   "Favorilerim" (FU_PIN) kullanım sıklığından bağımsız olarak her zaman en başta durur; kullanımdan da gelirse iki kez gösterilmez. */
+const FU_DOC="prefs/filters",FU_MIN=2,FU_SHOW=3,FU_KEEP=40,FU_SETTLE=2500;
+const FU_PIN={k:"fav=yes",fx:{fav:"yes"},label:"Favorilerim"};
+const FX_ORDER=["fav","origin","prog","hasnote","track","mode","location","source","tier"];
+const FX_TXT={fav:{yes:"Favoriler"},hasnote:{yes:"Not var",no:"Not yok"},origin:{auto:"Claude'un bulduğu",manual:"Elle eklenenler"},prog:{yes:"Adım eklenenler"},tier:{main:"Ana liste",near:"Yakın eşleşme"}};
+const fu={combos:{},loaded:false,timer:0,pending:null,lastKey:"",writing:Promise.resolve()};
+const fxCombo=()=>{const o={};for(const k of FX_ORDER) if(state.fx[k]) o[k]=state.fx[k];return o;};
+const comboKey=o=>FX_ORDER.filter(k=>o[k]).map(k=>k+"="+o[k]).join("&");
+const comboText=o=>FX_ORDER.filter(k=>o[k]).map(k=>FX_TXT[k]?.[o[k]]||(SEL[k]&&isUnspec(o[k])?`${SEL[k]} belirtilmemiş`:String(o[k]))).join(" · ");
+/* Veritabanından gelen kayıt yalnızca bilinen filtre anahtarlarını ve metin değerlerini taşıyorsa kullanılır */
+const comboOk=v=>v&&typeof v==="object"&&Number(v.n)>0&&v.fx&&typeof v.fx==="object"&&Object.keys(v.fx).length>0&&Object.entries(v.fx).every(([k,x])=>FX_ORDER.includes(k)&&typeof x==="string"&&x);
+function renderSug(){
+  const el=$("f-sug"),cur=comboKey(fxCombo());
+  const top=Object.entries(fu.combos).filter(([,v])=>comboOk(v)&&v.n>=FU_MIN&&comboKey(v.fx)!==FU_PIN.k)
+    .sort((a,b)=>b[1].n-a[1].n||String(b[1].last||"").localeCompare(String(a[1].last||""))).slice(0,FU_SHOW);
+  const pinOn=cur===FU_PIN.k;
+  el.hidden=false;
+  el.innerHTML=`<span class="lbl">Sık kullandıkların</span>`+
+    `<button type="button" class="tag sug pin${pinOn?" sel":""}" data-sug="${FU_PIN.k}" aria-pressed="${pinOn}" title="${pinOn?"Bu filtreyi kaldır":"Yalnızca favorilerini göster"}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-9.3-9.2C1.5 8.2 3.4 4.5 7 4.5c2.1 0 3.6 1.2 5 3 1.4-1.8 2.9-3 5-3 3.6 0 5.5 3.7 4.3 6.8-1.8 4.6-9.3 9.2-9.3 9.2z"/></svg>${FU_PIN.label}</button>`+
+    top.map(([k,v])=>{const on=comboKey(v.fx)===cur;
+    return `<button type="button" class="tag sug${on?" sel":""}" data-sug="${esc(k)}" aria-pressed="${on}" title="${on?"Bu filtreleri kaldır":`${v.n} kez kullandın; uygulamak için dokun`}">${esc(comboText(v.fx))}</button>`;}).join("");
+}
+function fuTrack(){
+  const o=fxCombo(),key=comboKey(o);
+  if(key===fu.pending) return;
+  clearTimeout(fu.timer);fu.pending=key;
+  if(!key){fu.lastKey="";return;}
+  if(key===fu.lastKey) return;
+  fu.timer=setTimeout(()=>{if(comboKey(fxCombo())!==key)return;fu.lastKey=key;fuRecord(key,o);},FU_SETTLE);
+}
+/* Kayıt, veritabanındaki mevcut belge okunmadan yazılmaz; aksi hâlde başka cihazdaki kayıt boş bir belgeyle ezilebilirdi */
+function fuRecord(key,o){
+  if(!state.db||!fu.loaded) return;
+  const c={};for(const [k,v] of Object.entries(fu.combos)) if(comboOk(v)) c[k]={fx:{...v.fx},n:Number(v.n),last:String(v.last||"")};
+  c[key]={fx:o,n:(c[key]?.n||0)+1,last:new Date().toISOString()};
+  const ks=Object.keys(c);
+  if(ks.length>FU_KEEP) ks.sort((a,b)=>c[a].n-c[b].n||c[a].last.localeCompare(c[b].last)).slice(0,ks.length-FU_KEEP).forEach(k=>delete c[k]);
+  fu.combos=c;renderSug();
+  fu.writing=fu.writing.then(()=>state.db.doc(FU_DOC).set({combos:c})).catch(()=>{});
+}
+$("f-sug").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-sug]");if(!b)return;
+  const v=b.dataset.sug===FU_PIN.k?{fx:FU_PIN.fx,n:1}:fu.combos[b.dataset.sug];if(!comboOk(v))return;
+  const on=b.getAttribute("aria-pressed")==="true";
+  for(const k of FX_ORDER) state.fx[k]="";
+  if(!on){for(const k of FX_ORDER) if(v.fx[k]) state.fx[k]=v.fx[k];
+    /* Süreç filtresi yalnızca Başvurdum sekmesinde geçerli */
+    if(v.fx.prog) state.status="applied";}
+  render(true);
+  $("f-sug").querySelector(`button[data-sug="${CSS.escape(b.dataset.sug)}"]`)?.focus();
+});
 $("f-sort").addEventListener("change",e=>{state.sort=e.target.value;render(true);});
 function showFilters(on){$("f-panel").hidden=!on;$("f-toggle").setAttribute("aria-expanded",String(on));}
 $("f-toggle").addEventListener("click",()=>showFilters($("f-panel").hidden));
@@ -1740,6 +1807,10 @@ render(true);
     if(!s.metadata.fromCache){clearTimeout(t);$("note").textContent="";}
     state.jobs=s.docs.map(d=>({...d.data(),_id:d.id}));render();
   },e=>{clearTimeout(t);$("note").textContent="Kayıtlar okunamadı ("+e.code+").";});
+  db.doc(FU_DOC).onSnapshot(s=>{
+    if(!s.metadata.fromCache) fu.loaded=true;
+    const d=s.exists?s.data():null;fu.combos=d&&d.combos&&typeof d.combos==="object"?d.combos:{};renderSug();
+  },()=>{});
   db.collection("runs").orderBy("date","desc").limit(1).onSnapshot(s=>{
     state.runs=s.docs.map(d=>({...d.data(),_id:d.id}));render();
   },()=>{});
