@@ -948,10 +948,22 @@ const comboKey=o=>FX_ORDER.filter(k=>o[k]).map(k=>k+"="+o[k]).join("&");
 const comboText=o=>FX_ORDER.filter(k=>o[k]).map(k=>FX_TXT[k]?.[o[k]]||(SEL[k]&&isUnspec(o[k])?`${SEL[k]} belirtilmemiş`:String(o[k]))).join(" · ");
 /* Veritabanından gelen kayıt yalnızca bilinen filtre anahtarlarını ve metin değerlerini taşıyorsa kullanılır */
 const comboOk=v=>v&&typeof v==="object"&&Number(v.n)>0&&v.fx&&typeof v.fx==="object"&&Object.keys(v.fx).length>0&&Object.entries(v.fx).every(([k,x])=>FX_ORDER.includes(k)&&typeof x==="string"&&x);
+/* Kullanımdan gelen öneriler (Favorilerim hariç), en sık önce; arama satırı ve slayt aynı listeyi kullanır */
+const fuTop=()=>Object.entries(fu.combos).filter(([,v])=>comboOk(v)&&v.n>=FU_MIN&&comboKey(v.fx)!==FU_PIN.k)
+  .sort((a,b)=>b[1].n-a[1].n||String(b[1].last||"").localeCompare(String(a[1].last||""))).slice(0,FU_SHOW);
+/* Bir öneriyi uygular; zaten etkinse filtreleri kaldırır */
+function applySug(key){
+  const v=key===FU_PIN.k?{fx:FU_PIN.fx,n:1}:fu.combos[key];if(!comboOk(v))return false;
+  const on=comboKey(fxCombo())===comboKey(v.fx);
+  for(const k of FX_ORDER) state.fx[k]="";
+  if(!on){for(const k of FX_ORDER) if(v.fx[k]) state.fx[k]=v.fx[k];
+    /* Süreç filtresi yalnızca Başvurdum sekmesinde geçerli */
+    if(v.fx.prog) setStatus("applied");}
+  render(true);return true;
+}
 function renderSug(){
   const el=$("f-sug"),cur=comboKey(fxCombo());
-  const top=Object.entries(fu.combos).filter(([,v])=>comboOk(v)&&v.n>=FU_MIN&&comboKey(v.fx)!==FU_PIN.k)
-    .sort((a,b)=>b[1].n-a[1].n||String(b[1].last||"").localeCompare(String(a[1].last||""))).slice(0,FU_SHOW);
+  const top=fuTop();
   const pinOn=cur===FU_PIN.k;
   el.hidden=false;
   el.innerHTML=`<span class="lbl">Sık kullandıkların</span>`+
@@ -978,14 +990,7 @@ function fuRecord(key,o){
   fu.writing=fu.writing.then(()=>state.db.doc(FU_DOC).set({combos:c})).catch(()=>{});
 }
 $("f-sug").addEventListener("click",e=>{
-  const b=e.target.closest("button[data-sug]");if(!b)return;
-  const v=b.dataset.sug===FU_PIN.k?{fx:FU_PIN.fx,n:1}:fu.combos[b.dataset.sug];if(!comboOk(v))return;
-  const on=b.getAttribute("aria-pressed")==="true";
-  for(const k of FX_ORDER) state.fx[k]="";
-  if(!on){for(const k of FX_ORDER) if(v.fx[k]) state.fx[k]=v.fx[k];
-    /* Süreç filtresi yalnızca Başvurdum sekmesinde geçerli */
-    if(v.fx.prog) setStatus("applied");}
-  render(true);
+  const b=e.target.closest("button[data-sug]");if(!b||!applySug(b.dataset.sug))return;
   $("f-sug").querySelector(`button[data-sug="${CSS.escape(b.dataset.sug)}"]`)?.focus();
 });
 $("f-sort").addEventListener("change",e=>{state.sort=e.target.value;render(true);});
@@ -1374,17 +1379,25 @@ const SLIDES=[
   {k:"prog",t:"İlerleyen başvurular",d:"Süreç adımı eklenmiş, kapanmamış başvurular",
     get:progressing,
     val:j=>{const s=stageStep(j);return [lbl(s),"txt "+(stCls(s)==="good"?"good":"act")];}},
+  /* 4. sayfa: sık kullanılan filtreler. Öğeler ilan değil filtre kombinasyonu; dokununca listeye uygulanır */
+  {k:"flt",t:"Sık kullanılan filtreler",d:"Dokununca filtreler listeye uygulanır, tekrar dokununca kalkar",unit:"kombinasyon",
+    get:()=>[{key:FU_PIN.k,fx:FU_PIN.fx,text:FU_PIN.label,sub:"Her zaman başta"},
+      ...fuTop().map(([k,v])=>({key:k,fx:v.fx,text:comboText(v.fx),sub:`${v.n} kez kullandın`}))]},
   {k:"wait",t:"Yanıt bekleyenler",d:"14 günden uzun süredir adım eklenmemiş başvurular",
     get:()=>state.jobs.filter(j=>j.status==="applied"&&!hasSteps(j)&&appliedDate(j)&&appliedDate(j)<=daysAgo(14))
       .sort((a,b)=>appliedDate(a).localeCompare(appliedDate(b))),
     val:j=>[dayDiff(appliedDate(j),isoLocal(new Date()))+" gün","txt"]}
 ];
 const sl={i:0,n:0,sig:"",timer:0,hold:false,reduce:reduceMotion.matches};
+/* Filtre slaytındaki bir satır: kombinasyonun adı, altında kullanım sayısı, sağda etkinse "Açık" */
+const sliFilter=f=>{const on=comboKey(f.fx)===comboKey(fxCombo());
+  return `<li><button type="button" class="sli" data-sug="${esc(f.key)}" aria-pressed="${on}" title="${on?"Bu filtreleri kaldır":"Listeye uygula"}">
+    <span class="sli-t">${esc(f.text)}</span><span class="sli-c">${esc(f.sub)}</span><b class="sli-v txt${on?" act":""}">${on?"Açık":""}</b></button></li>`;};
 function renderSlides(){
   const live=SLIDES.map(x=>({...x,items:x.get()})).filter(x=>x.items.length);
   const html=live.length?live.map((x,si)=>`<div class="slide" role="group" aria-roledescription="slayt" aria-label="${si+1} / ${live.length}: ${esc(x.t)}" id="sl-${x.k}">
-      <h3>${esc(x.t)}</h3><p>${esc(x.d)}${x.items.length>SL_MAX?` · ${x.items.length} ilan`:""}</p>
-      <ul>${x.items.slice(0,SL_MAX).map(j=>{const [v,c]=x.val(j);return `<li><button type="button" class="sli" data-go="${esc(j._id)}" title="Listede göster">
+      <h3>${esc(x.t)}</h3><p>${esc(x.d)}${x.items.length>SL_MAX?` · ${x.items.length} ${x.unit||"ilan"}`:""}</p>
+      <ul>${x.items.slice(0,SL_MAX).map(x.k==="flt"?sliFilter:j=>{const [v,c]=x.val(j);return `<li><button type="button" class="sli" data-go="${esc(j._id)}" title="Listede göster">
         <span class="sli-t">${esc(j.title)}</span><span class="sli-c">${esc(j.company)}</span><b class="sli-v ${c}">${esc(v)}</b></button></li>`;}).join("")}</ul></div>`).join("")
     :`<div class="slide"><h3>Öne çıkanlar</h3><p class="sl-empty">Favori eklediğinde, başvuru süreçlerin ilerlediğinde ya da yüksek puanlı ilanlar geldiğinde burada görünür.</p></div>`;
   if(html===sl.sig) return;
@@ -1434,7 +1447,15 @@ function goJob(id){
   el.classList.remove("flash");void el.offsetWidth;el.classList.add("flash");
   el.tabIndex=-1;el.focus({preventScroll:true});
 }
-$("sl-track").addEventListener("click",e=>{const b=e.target.closest("button[data-go]");if(b)goJob(b.dataset.go);});
+$("sl-track").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-go]");if(b){goJob(b.dataset.go);return;}
+  /* Filtre slaytı: uygula, liste görünmüyorsa listeye kay (dar ekranda liste slaytın üstünde kalır) */
+  const f=e.target.closest("button[data-sug]");if(!f)return;
+  if(state.view!=="list") goView("list");
+  if(!applySug(f.dataset.sug))return;
+  const top=document.querySelector(".mainp .filters");const r=top?.getBoundingClientRect();
+  if(r&&(r.top<0||r.top>innerHeight*.6)) top.scrollIntoView({block:"start",behavior:sl.reduce?"auto":"smooth"});
+});
 function renderAside(){renderPreview();renderSlides();}
 
 /* ===================== Elle başvuru ekleme ===================== */
@@ -1815,7 +1836,7 @@ render(true);
   },e=>{clearTimeout(t);$("note").textContent="Kayıtlar okunamadı ("+e.code+").";});
   db.doc(FU_DOC).onSnapshot(s=>{
     if(!s.metadata.fromCache) fu.loaded=true;
-    const d=s.exists?s.data():null;fu.combos=d&&d.combos&&typeof d.combos==="object"?d.combos:{};renderSug();
+    const d=s.exists?s.data():null;fu.combos=d&&d.combos&&typeof d.combos==="object"?d.combos:{};renderSug();renderSlides();
   },()=>{});
   db.collection("runs").orderBy("date","desc").limit(1).onSnapshot(s=>{
     state.runs=s.docs.map(d=>({...d.data(),_id:d.id}));render();
