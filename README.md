@@ -7,7 +7,8 @@ Günlük taramayla bulunan iş ilanlarını tek sayfada toplayan, başvuru süre
 ## Özellikler
 
 - **Pano:** Solda ilan paneli; sağda istatistik önizlemesi ve slayt alanı (öne çıkanlar, favoriler, ilerleyen başvurular, yanıt bekleyenler). Slayttaki bir ilana dokununca listede o karta gidilir.
-- **Varsayılan görünüm:** Son taramada bulunan yeni ilanlar. "Son 7 gün" ve "Tüm zamanlar" ile genişletilir. Liste boşsa altında başvurulmamış favoriler, onlar da yoksa ilerleyen başvurular gösterilir.
+- **Varsayılan görünüm:** Yeni sekmesi, tüm zamanlar. Zaman "Son tarama" veya "Son 7 gün" ile daraltılabilir; her sekme kendi seçimini sayfa açık kaldığı sürece hatırlar. Liste boşsa altında başvurulmamış favoriler, onlar da yoksa ilerleyen başvurular gösterilir.
+- **Sık kullanılan filtreler:** Birlikte kullandığın filtre kombinasyonları kaydedilir; en sık kullanılanlar arama satırının altında tek dokunuşla uygulanan öneriler olarak çıkar. "Favorilerim" her zaman en başta durur.
 - **İlan listesi:** Her ilan eşleşme puanı, alan, çalışma şekli, lokasyon ve neden eşleştiğini anlatan kısa bir açıklamayla gelir.
 - **Durum sekmeleri:** Yeni, Başvurdum, İlgilenmiyorum ve Tümü. "Başvurdum" veya "İlgilenmiyorum" olarak işaretlenen ilan bir daha önerilmez.
 - **Arama, sıralama ve filtreler:** Şirket, pozisyon veya not içinde arama; tarihe ya da puana göre sıralama; favori, not, alan, çalışma şekli, lokasyon, kaynak ve eşleşme düzeyine göre filtreleme.

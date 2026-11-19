@@ -598,9 +598,9 @@ button:focus-visible,a:focus-visible,summary:focus-visible,textarea:focus-visibl
         <button data-v="all" aria-pressed="false">Tümü<span class="n" id="c-all"></span></button>
       </div>
       <div class="scope" id="seg-scope" role="group" aria-label="Zaman">
-        <button data-v="run" aria-pressed="true">Son tarama<small id="sc-run"></small></button>
+        <button data-v="run" aria-pressed="false">Son tarama<small id="sc-run"></small></button>
         <button data-v="week" aria-pressed="false">Son 7 gün</button>
-        <button data-v="all" aria-pressed="false">Tüm zamanlar</button>
+        <button data-v="all" aria-pressed="true">Tüm zamanlar</button>
       </div>
     </div>
     <div class="toolbar">
@@ -719,7 +719,7 @@ const errMsg=err=>err?.message||"bilinmeyen hata";
 const reduceMotion=matchMedia("(prefers-reduced-motion: reduce)");
 const CHEV='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
 const CHECK='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
-const state={jobs:[],runs:[],status:"new",scope:"run",sort:"date",db:null,pending:false,open:new Set(),stepOpen:new Set(),draft:{},
+const state={jobs:[],runs:[],status:"new",scope:"all",sort:"date",db:null,pending:false,open:new Set(),stepOpen:new Set(),draft:{},
   fx:{mode:"",track:"",location:"",source:"",tier:"",hasnote:"",fav:"",origin:"",prog:"",q:""}};
 const SEL={track:"Alan",mode:"Çalışma şekli",location:"Lokasyon",source:"Kaynak"};
 const jobById=id=>state.jobs.find(x=>x._id===id);
@@ -745,6 +745,11 @@ function inScope(j){
   return true;
 }
 const SCOPE_EMPTY={run:"Son taramada",week:"Son 7 günde"};
+/* Her sekme kendi zaman kapsamını hatırlar; hepsi "Tüm zamanlar" ile başlar.
+   Sekmede elle seçilen kapsam, sayfa açık kaldığı sürece o sekmeye dönünce geri gelir. */
+const scopeByTab={new:"all",applied:"all",skip:"all",all:"all"};
+function setStatus(v){state.status=v;state.scope=scopeByTab[v]||"all";}
+function setScope(v){state.scope=v;scopeByTab[state.status]=v;}
 /* Başvurulmamış favoriler ve süreci ilerleyen başvurular: boş ana liste yedeği ile slayt alanı aynı tanımı kullanır */
 const byFavDate=(a,b)=>(b.favDate||"").localeCompare(a.favDate||"")||(b.score||0)-(a.score||0);
 const favOpen=()=>state.jobs.filter(j=>j.fav&&(j.status||"new")==="new").sort(byFavDate);
@@ -920,8 +925,8 @@ async function saveNote(id){
 /* Segment kontrolü: içindeki data-v düğmesine tıklanınca fn(değer) çağrılır */
 function onSeg(id,fn){$(id).addEventListener("click",e=>{const b=e.target.closest("button[data-v]");if(b)fn(b.dataset.v);});}
 function segBind(id,fn){onSeg(id,v=>{fn(v);render(true);});}
-segBind("seg-status",v=>state.status=v);
-segBind("seg-scope",v=>state.scope=v);
+segBind("seg-status",setStatus);
+segBind("seg-scope",setScope);
 segBind("seg-note",v=>state.fx.hasnote=v);
 segBind("seg-fav",v=>state.fx.fav=v);
 segBind("seg-origin",v=>state.fx.origin=v);
@@ -979,7 +984,7 @@ $("f-sug").addEventListener("click",e=>{
   for(const k of FX_ORDER) state.fx[k]="";
   if(!on){for(const k of FX_ORDER) if(v.fx[k]) state.fx[k]=v.fx[k];
     /* Süreç filtresi yalnızca Başvurdum sekmesinde geçerli */
-    if(v.fx.prog) state.status="applied";}
+    if(v.fx.prog) setStatus("applied");}
   render(true);
   $("f-sug").querySelector(`button[data-sug="${CSS.escape(b.dataset.sug)}"]`)?.focus();
 });
@@ -996,7 +1001,7 @@ const LIST_ACTIONS=[
   /* Başlık metnine tıklamak da düğmeyle aynı işi yapar; klavye için düğme tek odak noktası olarak kalır */
   ["[data-fbtoggle]",ft=>{const k=ft.dataset.fbtoggle;fbMin[k]=!fbIsMin(k);try{localStorage.setItem(FB_KEY,JSON.stringify(fbMin));}catch{}
     render(true);document.querySelector(`button[data-fbtoggle="${k}"]`)?.focus();}],
-  ["button[data-scope]",ws=>{state.scope=ws.dataset.scope;render(true);$("seg-scope").querySelector(`button[data-v="${ws.dataset.scope}"]`)?.focus();}],
+  ["button[data-scope]",ws=>{setScope(ws.dataset.scope);render(true);$("seg-scope").querySelector(`button[data-v="${ws.dataset.scope}"]`)?.focus();}],
   ["button[data-fk]",tg=>{const k=tg.dataset.fk,v=tg.dataset.fv;state.fx[k]=state.fx[k]===v?"":v;if(state.fx[k])showFilters(true);render(true);}],
   ["button[data-fav]",async fv=>{
     if(!state.db) return;
@@ -1419,7 +1424,8 @@ slArm();
 function goJob(id){
   const j=jobById(id);if(!j)return;
   if(state.view!=="list") goView("list");
-  state.status=j.status||"new";
+  setStatus(j.status||"new");
+  /* Karta ulaşmak için geçici genişletme: sekmenin hatırlanan kapsamını değiştirmez */
   if(!inScope(j)) state.scope="all";
   if(!passFx(j)){for(const k in state.fx) state.fx[k]="";$("f-q").value="";}
   render(true);
@@ -1502,7 +1508,7 @@ $("m-save").addEventListener("click",async()=>{
   try{
     await state.db.doc("jobs/"+id).set(data);
     closeAdd(true);
-    state.status="applied";render(true);
+    setStatus("applied");render(true);
     $("add-done").textContent=`Eklendi: ${company} – ${title}. "Başvurdum" sekmesinde, süreç adımı ekleyebilirsin.`;
     $("add-open").focus();
   }catch(err){msg.textContent="Kaydedilemedi: "+errMsg(err)+". Tekrar dene.";}
