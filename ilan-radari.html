@@ -66,7 +66,7 @@ h1 span{color:var(--pink)}
 .seg button .n{font-family:var(--mono);font-size:12px;color:var(--muted)}
 .seg button .n:empty{display:none}
 
-.search{flex:1 1 220px;min-width:0;height:36px;box-sizing:border-box;font:14px/20px var(--body);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:0 12px}
+.search{flex:1 1 160px;min-width:0;height:36px;box-sizing:border-box;font:14px/20px var(--body);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:0 12px}
 .search::placeholder{color:var(--muted)}
 .more{font-size:13px}
 select{font:13px/20px var(--body);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;height:36px;box-sizing:border-box;padding:0 8px;max-width:100%}
@@ -131,6 +131,11 @@ select.set{border-color:var(--muted);background:var(--surface-2);font-weight:500
 .stxt b{font-weight:500}
 .stxt small{color:var(--muted);font-family:var(--mono);font-size:12px;margin-left:8px;font-variant-numeric:tabular-nums}
 .stxt p{margin:4px 0 0;font-size:13px;color:var(--soft);white-space:pre-wrap;overflow-wrap:anywhere}
+/* Adım eylemleri: Not ekle ve Sil yan yana, sağda */
+.sacts{display:flex;gap:4px;align-items:center;white-space:nowrap}
+.snote{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.snote input{font:13px/20px var(--body);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;height:36px;padding:0 12px;width:100%;box-sizing:border-box}
+.snote .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .sdel{border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer;font:400 12px/16px var(--body);border-radius:8px;padding:4px 8px}
 .sdel:hover{color:var(--fg);border-color:var(--line)}
 .sdel[data-armed]{color:var(--on-pink);background:var(--pink);border-color:var(--pink)}
@@ -208,7 +213,10 @@ select.set{border-color:var(--muted);background:var(--surface-2);font-weight:500
 .toolbar .btn{min-height:36px}
 .toolbar .btn[aria-expanded="true"]{border-color:var(--muted);background:var(--surface)}
 /* "Başvuru ekle" / "İptal et": iki etiket aynı hücrede durur, biri gizlenir; buton genişliği hep uzun olana göre kalır */
-#add-open{display:inline-grid;justify-items:center}
+#add-open{display:inline-grid;justify-items:center;align-items:center}
+/* Araç çubuğunda tek sarı öğe: "Başvuru ekle" diğer düğmelerden ayrışsın. Form açıkken ("İptal et") nötr görünüme döner. */
+.toolbar #add-open[aria-expanded="false"]{color:var(--amber);border-color:rgba(255,179,67,.55);background:var(--amber-soft);font-weight:600}
+.toolbar #add-open[aria-expanded="false"]:hover{border-color:var(--amber);background:rgba(255,179,67,.22)}
 #add-open>span{grid-area:1/1}
 #add-open[aria-expanded="false"]>span:last-child,#add-open[aria-expanded="true"]>span:first-child{visibility:hidden}
 #add-done:empty{display:none}
@@ -232,8 +240,8 @@ select.set{border-color:var(--muted);background:var(--surface-2);font-weight:500
 .navrow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;border-bottom:1px solid var(--line)}
 .navrow .tabs button{padding:12px}
 /* Cam yüzeyin üstündeki çerçeveli düğmeler akışın rengini almasın diye düz zemin alır */
-.hd>.btn,.filters .btn,.rbar .btn:not(.on),.sthead .btn{background:var(--bg)}
-.hd>.btn:hover,.filters .btn:hover,.rbar .btn:not(.on):hover,.sthead .btn:hover{background:var(--surface-2)}
+.filters .btn,.rbar .btn:not(.on),.sthead .btn{background:var(--bg)}
+.filters .btn:hover,.rbar .btn:not(.on):hover,.sthead .btn:hover{background:var(--surface-2)}
 .scope small{font:500 12px/16px var(--mono);color:var(--muted);margin-left:4px}
 .empty .btn{margin-top:12px}
 /* Boş ana liste yedeği: başlık ve kartlar listenin akışında */
@@ -458,9 +466,10 @@ button:focus-visible,a:focus-visible,summary:focus-visible,textarea:focus-visibl
   .navrow .tabs button{padding:12px 8px}
   .navrow{flex-direction:column;flex-wrap:nowrap;align-items:stretch}
   .scope{align-self:flex-start}
-  .hd>.btn{white-space:nowrap}
   .toolbar .search{flex-basis:100%}
   .toolbar .csel,.toolbar .btn{flex:1 1 0}
+  /* Telefonda "Başvuru ekle" kendi satırında, tam genişlikte: üç düğme tek satıra sığmıyor */
+  .toolbar #add-open{flex-basis:100%}
   .rbar .stepmsg{flex-basis:100%}
   .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
   .mini{grid-template-columns:minmax(0,1fr)}
@@ -480,7 +489,6 @@ button:focus-visible,a:focus-visible,summary:focus-visible,textarea:focus-visibl
       <h1>İlan Radarı<span>.</span></h1>
       <p class="sub">Her gün taranan, profiline uyan ilanlar. "Başvurdum" veya "İlgilenmiyorum" dediğin ilanlar bir daha önerilmez.</p>
     </div>
-    <button type="button" class="btn" id="add-open" aria-expanded="false" aria-controls="addform"><span>+ Başvuru ekle</span><span>İptal et</span></button>
   </header>
 
   <div id="v-stats" class="vstack statsv glass" hidden>
@@ -609,6 +617,7 @@ button:focus-visible,a:focus-visible,summary:focus-visible,textarea:focus-visibl
         <option value="date">Sırala: En yeni</option><option value="date-asc">Sırala: En eski</option><option value="score-desc">Sırala: Yüksek puan</option><option value="score-asc">Sırala: Düşük puan</option>
       </select>
       <button type="button" class="btn" id="f-toggle" aria-expanded="false" aria-controls="f-panel">Filtreler<span class="badge" id="f-n"></span></button>
+      <button type="button" class="btn" id="add-open" aria-expanded="false" aria-controls="addform"><span>+ Başvuru ekle</span><span>İptal et</span></button>
     </div>
     <div class="sugs" id="f-sug" role="group" aria-label="Sık kullandığın filtre kombinasyonları" hidden></div>
     <div class="panel" id="f-panel" hidden>
@@ -719,14 +728,14 @@ const errMsg=err=>err?.message||"bilinmeyen hata";
 const reduceMotion=matchMedia("(prefers-reduced-motion: reduce)");
 const CHEV='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
 const CHECK='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
-const state={jobs:[],runs:[],status:"new",scope:"all",sort:"date",db:null,pending:false,open:new Set(),stepOpen:new Set(),draft:{},
+const state={jobs:[],runs:[],status:"new",scope:"all",sort:"date",db:null,pending:false,open:new Set(),stepOpen:new Set(),stepNote:new Map(),draft:{},
   fx:{mode:"",track:"",location:"",source:"",tier:"",hasnote:"",fav:"",origin:"",prog:"",q:""}};
 const SEL={track:"Alan",mode:"Çalışma şekli",location:"Lokasyon",source:"Kaynak"};
 const jobById=id=>state.jobs.find(x=>x._id===id);
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const norm=s=>String(s??"").toLocaleLowerCase("tr");
-const editing=()=>document.activeElement?.matches?.("textarea[data-note], .stepform input, .stepform select");
+const editing=()=>document.activeElement?.matches?.("textarea[data-note], .stepform input, .stepform select, .snote input");
 const rawSteps=j=>Array.isArray(j.steps)?j.steps:[];
 const stepsOf=j=>[...rawSteps(j)].sort((a,b)=>(a.date||"").localeCompare(b.date||"")||(a.id||"").localeCompare(b.id||""));
 const isClosed=j=>rawSteps(j).some(s=>s.kind==="rejected");
@@ -797,7 +806,12 @@ function procHtml(j){
   const d=state.draft[j._id]||newDraft();
   const all=[{kind:"applied",label:"Başvuru yapıldı",date:j.statusDate||"",base:true},...steps];
   const lis=all.map((s,i)=>{const last=i===all.length-1;const c=[last?"cur":"",stCls(s)].filter(Boolean).join(" ");
-    return `<li class="${c}"><span class="dot"></span><div class="stxt"><b>${esc(s.base?s.label:lbl(s))}</b>${s.date?`<small>${esc(dt(s.date))}</small>`:""}${s.note?`<p>${esc(s.note)}</p>`:""}</div>${s.base?"<span></span>":`<button type="button" class="sdel" data-stepdel="${id}" data-sid="${esc(s.id)}" aria-label="Adımı sil">Sil</button>`}</li>`;}).join("");
+    const nk=s.base?"":j._id+"|"+s.id, nOpen=!!nk&&state.stepNote.has(nk), sid=esc(s.id||"");
+    const nDraft=nOpen?(state.stepNote.get(nk)??s.note??""):"";
+    return `<li class="${c}"><span class="dot"></span><div class="stxt"><b>${esc(s.base?s.label:lbl(s))}</b>${s.date?`<small>${esc(dt(s.date))}</small>`:""}${s.note&&!nOpen?`<p>${esc(s.note)}</p>`:""}${nOpen?`<div class="snote">
+      <input type="text" id="sn-${id}-${sid}" data-snin="${id}" data-sid="${sid}" maxlength="300" value="${esc(nDraft)}" placeholder="Kısa not: kiminle, nasıl geçti, sonraki adım…" aria-label="${esc(lbl(s))} adımının notu">
+      <div class="bar"><button type="button" class="btn on" data-snsave="${id}" data-sid="${sid}">Kaydet</button><button type="button" class="btn ghost" data-sncancel="${id}" data-sid="${sid}">Vazgeç</button><span class="stepmsg" id="snm-${id}-${sid}"></span></div>
+    </div>`:""}</div>${s.base?"<span></span>":`<span class="sacts">${nOpen?"":`<button type="button" class="sdel" data-snote="${id}" data-sid="${sid}" aria-label="${esc(lbl(s))} adımına ${s.note?"notu düzenle":"not ekle"}">${s.note?"Notu düzenle":"Not ekle"}</button>`}<button type="button" class="sdel" data-stepdel="${id}" data-sid="${sid}" aria-label="Adımı sil">Sil</button></span>`}</li>`;}).join("");
   return `<section class="proc" aria-label="Süreç">
     <h4>Süreç</h4>
     <ol class="steps">${lis}</ol>
@@ -1033,6 +1047,12 @@ const LIST_ACTIONS=[
     try{await state.db.doc("jobs/"+jid).update({steps:arr});closeStepForm(jid);render(true);}
     catch(err){sa.disabled=false;if(m)m.textContent="Kaydedilemedi: "+errMsg(err)+". Tekrar dene.";}
   }],
+  /* Adım notu: satırın altında küçük bir alan açılır; boş kaydetmek notu siler */
+  ["button[data-snote]",b=>{const k=b.dataset.snote+"|"+b.dataset.sid;state.stepNote.set(k,null);render(true);
+    const el=document.querySelector(`input[data-snin="${CSS.escape(b.dataset.snote)}"][data-sid="${CSS.escape(b.dataset.sid)}"]`);if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length);}}],
+  ["button[data-sncancel]",b=>{state.stepNote.delete(b.dataset.sncancel+"|"+b.dataset.sid);render(true);
+    document.querySelector(`button[data-snote="${CSS.escape(b.dataset.sncancel)}"][data-sid="${CSS.escape(b.dataset.sid)}"]`)?.focus();}],
+  ["button[data-snsave]",b=>saveStepNote(b.dataset.snsave,b.dataset.sid,b)],
   /* Silme iki adımlı: ilk tıklama 3 saniyeliğine kurar, ikincisi siler */
   ["button[data-stepdel]",async sd=>{
     if(!sd.dataset.armed){sd.dataset.armed="1";sd.textContent="Emin misin?";setTimeout(()=>{if(sd.isConnected){delete sd.dataset.armed;sd.textContent="Sil";}},3000);return;}
@@ -1058,11 +1078,29 @@ const LIST_ACTIONS=[
 $("list").addEventListener("click",async e=>{
   for(const [sel,fn] of LIST_ACTIONS){const el=e.target.closest(sel);if(el){await fn(el);return;}}
 });
+async function saveStepNote(jid,sid,btn){
+  const j=jobById(jid);if(!j||!state.db)return;
+  const inp=document.querySelector(`input[data-snin="${CSS.escape(jid)}"][data-sid="${CSS.escape(sid)}"]`),m=$(`snm-${jid}-${sid}`);
+  const note=(inp?.value||"").trim(),cur=rawSteps(j).find(s=>s.id===sid);
+  if(!cur){state.stepNote.delete(jid+"|"+sid);render(true);return;}
+  if(note===(cur.note||"")){state.stepNote.delete(jid+"|"+sid);render(true);return;}
+  if(btn)btn.disabled=true;if(m)m.textContent="Kaydediliyor…";
+  try{await state.db.doc("jobs/"+jid).update({steps:rawSteps(j).map(s=>s.id===sid?{...s,note}:s)});
+    state.stepNote.delete(jid+"|"+sid);render(true);
+    document.querySelector(`button[data-snote="${CSS.escape(jid)}"][data-sid="${CSS.escape(sid)}"]`)?.focus();}
+  catch(err){if(btn)btn.disabled=false;if(m)m.textContent="Kaydedilemedi: "+errMsg(err)+". Tekrar dene.";}
+}
+$("list").addEventListener("keydown",e=>{const el=e.target.closest?.("input[data-snin]");if(!el)return;
+  if(e.key==="Enter"){e.preventDefault();saveStepNote(el.dataset.snin,el.dataset.sid,null);}
+  else if(e.key==="Escape"){e.preventDefault();state.stepNote.delete(el.dataset.snin+"|"+el.dataset.sid);render(true);
+    document.querySelector(`button[data-snote="${CSS.escape(el.dataset.snin)}"][data-sid="${CSS.escape(el.dataset.sid)}"]`)?.focus();}});
+/* Yazılan not, liste yeniden çizilse de kaybolmasın */
+$("list").addEventListener("input",e=>{const el=e.target.closest?.("input[data-snin]");if(el)state.stepNote.set(el.dataset.snin+"|"+el.dataset.sid,el.value);});
 const keepDraft=e=>{const el=e.target.closest?.("[data-sf]");if(!el)return;const k=el.dataset.jid;state.draft[k]=state.draft[k]||newDraft();state.draft[k][el.dataset.sf]=el.value;};
 $("list").addEventListener("input",keepDraft);
 $("list").addEventListener("change",keepDraft);
 $("list").addEventListener("focusout",e=>{
-  if(e.target.closest?.(".stepform")){setTimeout(()=>{if(state.pending&&!editing())render();},0);return;}
+  if(e.target.closest?.(".stepform, .snote")){setTimeout(()=>{if(state.pending&&!editing())render();},0);return;}
   const ta=e.target.closest?.("textarea[data-note]"); if(!ta) return;
   saveNote(ta.dataset.note).finally(()=>setTimeout(()=>{if(state.pending&&!editing())render();},0));
 });
@@ -1795,7 +1833,8 @@ function openPop(ui){
   pop.classList.toggle("up",r.bottom+pop.offsetHeight+8>innerHeight&&r.top>pop.offsetHeight+8);
   pop.classList.toggle("right",r.left+pop.offsetWidth>document.documentElement.clientWidth-16);
   setAct(ui,Math.max(0,sel.selectedIndex));
-  pop.addEventListener("click",e=>{const li=e.target.closest("li[data-i]");if(li)pick(ui,+li.dataset.i);});
+  /* preventDefault: liste bir <label> içindeyse tarayıcı tıklamayı etiketin ilk denetimine (açılır liste düğmesi) aktarır ve liste yeniden açılırdı */
+  pop.addEventListener("click",e=>{e.preventDefault();const li=e.target.closest("li[data-i]");if(li)pick(ui,+li.dataset.i);});
   pop.addEventListener("mousemove",e=>{const li=e.target.closest("li[data-i]");if(li&&+li.dataset.i!==ui.act)setAct(ui,+li.dataset.i,true);});
   pop.addEventListener("keydown",e=>popKey(ui,e));
   pop.focus({preventScroll:true});
