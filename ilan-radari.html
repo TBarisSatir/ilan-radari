@@ -611,6 +611,14 @@ button:focus-visible,a:focus-visible,summary:focus-visible,textarea:focus-visibl
       </div>
     </div>
     <div class="ctl">
+      <span class="lbl">Bulan</span>
+      <div class="seg" id="seg-origin" role="group" aria-label="İlanı kim buldu">
+        <button data-v="" aria-pressed="true">Hepsi</button>
+        <button data-v="auto" aria-pressed="false">Claude'un bulduğu</button>
+        <button data-v="manual" aria-pressed="false">Elle eklenenler<span class="n" id="c-manual"></span></button>
+      </div>
+    </div>
+    <div class="ctl">
       <span class="lbl">Not</span>
       <div class="seg" id="seg-note" role="group" aria-label="Not filtresi">
         <button data-v="" aria-pressed="true">Hepsi</button>
@@ -703,7 +711,7 @@ const reduceMotion=matchMedia("(prefers-reduced-motion: reduce)");
 const CHEV='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
 const CHECK='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
 const state={jobs:[],runs:[],status:"new",scope:"run",sort:"date",db:null,pending:false,open:new Set(),stepOpen:new Set(),draft:{},
-  fx:{mode:"",track:"",location:"",source:"",tier:"",hasnote:"",fav:"",prog:"",q:""}};
+  fx:{mode:"",track:"",location:"",source:"",tier:"",hasnote:"",fav:"",origin:"",prog:"",q:""}};
 const SEL={track:"Alan",mode:"Çalışma şekli",location:"Lokasyon",source:"Kaynak"};
 const jobById=id=>state.jobs.find(x=>x._id===id);
 const $=id=>document.getElementById(id);
@@ -741,6 +749,7 @@ function passFx(j){
   if(fx.hasnote==="yes"&&!hasNote(j)) return false;
   if(fx.hasnote==="no"&&hasNote(j)) return false;
   if(fx.fav==="yes"&&!j.fav) return false;
+  if(fx.origin&&(j.manual?"manual":"auto")!==fx.origin) return false;
   if(fx.prog==="yes"&&!hasSteps(j)) return false;
   if(fx.q){const hay=norm([j.company,j.title,j.matched,j.experience,j.note,j.location,j.track,...stepsOf(j).map(s=>lbl(s)+" "+(s.note||""))].join(" "));
     if(!norm(fx.q).split(/\s+/).filter(Boolean).every(w=>hay.includes(w))) return false;}
@@ -833,7 +842,7 @@ function render(force){
   if(!force&&editing()){state.pending=true;return;}
   state.pending=false;
   fillSelects();
-  syncSeg("seg-status",state.status);syncSeg("seg-scope",state.scope);syncSeg("seg-note",state.fx.hasnote);syncSeg("seg-fav",state.fx.fav);$("f-sort").value=state.sort;
+  syncSeg("seg-status",state.status);syncSeg("seg-scope",state.scope);syncSeg("seg-note",state.fx.hasnote);syncSeg("seg-fav",state.fx.fav);syncSeg("seg-origin",state.fx.origin);$("f-sort").value=state.sort;
   /* Süreç filtresi yalnızca "Başvurdum" sekmesinde görünür ve geçerlidir */
   if(state.status!=="applied") state.fx.prog="";
   $("ctl-prog").hidden=state.status!=="applied";syncSeg("seg-prog",state.fx.prog);
@@ -857,6 +866,7 @@ function render(force){
   const pend=state.jobs.filter(j=>(j.status||"new")==="new").length;
   const favN=state.jobs.filter(j=>j.fav).length;
   $("c-fav").textContent=favN||"";
+  $("c-manual").textContent=state.jobs.filter(j=>j.manual).length||"";
   const last=state.runs[0];
   $("stats").innerHTML=`<span>Son tarama <b>${esc(last?dt(last._id):"—")}</b></span>
     <span>O gün yeni <b${last&&Number(last.newCount)>0?' class="p"':""}>${last?esc(last.newCount??0):"—"}</b></span>
@@ -904,6 +914,7 @@ segBind("seg-status",v=>state.status=v);
 segBind("seg-scope",v=>state.scope=v);
 segBind("seg-note",v=>state.fx.hasnote=v);
 segBind("seg-fav",v=>state.fx.fav=v);
+segBind("seg-origin",v=>state.fx.origin=v);
 segBind("seg-prog",v=>state.fx.prog=v);
 $("f-sort").addEventListener("change",e=>{state.sort=e.target.value;render(true);});
 function showFilters(on){$("f-panel").hidden=!on;$("f-toggle").setAttribute("aria-expanded",String(on));}
